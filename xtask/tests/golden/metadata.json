@@ -1,0 +1,1060 @@
+{
+  "packages": [
+    {
+      "name": "wordcraft-control-key",
+      "dependencies": [
+
+      ]
+    },
+    {
+      "name": "wordcraft-doc",
+      "dependencies": [
+        {
+          "name": "base64",
+          "kind": null
+        },
+        {
+          "name": "log",
+          "kind": null
+        },
+        {
+          "name": "serde",
+          "kind": null
+        },
+        {
+          "name": "serde_json",
+          "kind": null
+        },
+        {
+          "name": "thiserror",
+          "kind": null
+        },
+        {
+          "name": "unicode-segmentation",
+          "kind": null
+        },
+        {
+          "name": "wordcraft-geom",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "proptest",
+          "kind": "dev"
+        }
+      ]
+    },
+    {
+      "name": "wordcraft-geom",
+      "dependencies": [
+        {
+          "name": "image",
+          "kind": null
+        },
+        {
+          "name": "serde",
+          "kind": null
+        }
+      ]
+    },
+    {
+      "name": "wordcraft-docbin",
+      "dependencies": [
+        {
+          "name": "cfb",
+          "kind": null
+        },
+        {
+          "name": "chrono",
+          "kind": null
+        },
+        {
+          "name": "image",
+          "kind": null
+        },
+        {
+          "name": "log",
+          "kind": null
+        },
+        {
+          "name": "miniz_oxide",
+          "kind": null
+        },
+        {
+          "name": "sha1",
+          "kind": null
+        },
+        {
+          "name": "thiserror",
+          "kind": null
+        },
+        {
+          "name": "wordcraft-doc",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-geom",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "proptest",
+          "kind": "dev"
+        },
+        {
+          "name": "serde_json",
+          "kind": "dev"
+        },
+        {
+          "name": "wordcraft-doc",
+          "kind": "dev",
+          "path": "/fixture"
+        }
+      ]
+    },
+    {
+      "name": "wordcraft-docx",
+      "dependencies": [
+        {
+          "name": "aes",
+          "kind": null
+        },
+        {
+          "name": "base64",
+          "kind": null
+        },
+        {
+          "name": "cfb",
+          "kind": null
+        },
+        {
+          "name": "chrono",
+          "kind": null
+        },
+        {
+          "name": "getrandom",
+          "kind": null
+        },
+        {
+          "name": "hmac",
+          "kind": null
+        },
+        {
+          "name": "log",
+          "kind": null
+        },
+        {
+          "name": "quick-xml",
+          "kind": null
+        },
+        {
+          "name": "sha1",
+          "kind": null
+        },
+        {
+          "name": "sha2",
+          "kind": null
+        },
+        {
+          "name": "thiserror",
+          "kind": null
+        },
+        {
+          "name": "unicode-bidi",
+          "kind": null
+        },
+        {
+          "name": "wordcraft-doc",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-geom",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "zeroize",
+          "kind": null
+        },
+        {
+          "name": "zip",
+          "kind": null
+        },
+        {
+          "name": "image",
+          "kind": "dev"
+        },
+        {
+          "name": "proptest",
+          "kind": "dev"
+        },
+        {
+          "name": "wordcraft-doc",
+          "kind": "dev",
+          "path": "/fixture"
+        },
+        {
+          "name": "zip",
+          "kind": "dev"
+        },
+        {
+          "name": "getrandom",
+          "kind": null
+        }
+      ]
+    },
+    {
+      "name": "wordcraft-engine",
+      "dependencies": [
+        {
+          "name": "chrono",
+          "kind": null
+        },
+        {
+          "name": "image",
+          "kind": null
+        },
+        {
+          "name": "log",
+          "kind": null
+        },
+        {
+          "name": "regex",
+          "kind": null
+        },
+        {
+          "name": "regex-automata",
+          "kind": null
+        },
+        {
+          "name": "serde",
+          "kind": null
+        },
+        {
+          "name": "serde_json",
+          "kind": null
+        },
+        {
+          "name": "thiserror",
+          "kind": null
+        },
+        {
+          "name": "wordcraft-doc",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-docbin",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-docx",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-fonts",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-formats",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-geom",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-layout",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-pdf",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "craft-proof",
+          "kind": null
+        },
+        {
+          "name": "wordcraft-render",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "zeroize",
+          "kind": null
+        },
+        {
+          "name": "cfb",
+          "kind": "dev"
+        },
+        {
+          "name": "encoding_rs",
+          "kind": "dev"
+        },
+        {
+          "name": "zip",
+          "kind": "dev"
+        },
+        {
+          "name": "js-sys",
+          "kind": null
+        },
+        {
+          "name": "craft-font-catalog",
+          "kind": null
+        },
+        {
+          "name": "craft-font-store",
+          "kind": null
+        },
+        {
+          "name": "getrandom",
+          "kind": null
+        },
+        {
+          "name": "libc",
+          "kind": null
+        }
+      ]
+    },
+    {
+      "name": "wordcraft-fonts",
+      "dependencies": [
+        {
+          "name": "brotli-decompressor",
+          "kind": null
+        },
+        {
+          "name": "harfrust",
+          "kind": null
+        },
+        {
+          "name": "kurbo",
+          "kind": null
+        },
+        {
+          "name": "log",
+          "kind": null
+        },
+        {
+          "name": "skrifa",
+          "kind": null
+        },
+        {
+          "name": "unicode-bidi",
+          "kind": null
+        },
+        {
+          "name": "unicode-script",
+          "kind": null
+        },
+        {
+          "name": "wuff",
+          "kind": null
+        }
+      ]
+    },
+    {
+      "name": "wordcraft-formats",
+      "dependencies": [
+        {
+          "name": "cfb",
+          "kind": null
+        },
+        {
+          "name": "chardetng",
+          "kind": null
+        },
+        {
+          "name": "chrono",
+          "kind": null
+        },
+        {
+          "name": "encoding_rs",
+          "kind": null
+        },
+        {
+          "name": "image",
+          "kind": null
+        },
+        {
+          "name": "log",
+          "kind": null
+        },
+        {
+          "name": "quick-xml",
+          "kind": null
+        },
+        {
+          "name": "wordcraft-doc",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-geom",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-metafile",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "zip",
+          "kind": null
+        },
+        {
+          "name": "proptest",
+          "kind": "dev"
+        },
+        {
+          "name": "wordcraft-doc",
+          "kind": "dev",
+          "path": "/fixture"
+        },
+        {
+          "name": "js-sys",
+          "kind": null
+        }
+      ]
+    },
+    {
+      "name": "wordcraft-metafile",
+      "dependencies": [
+        {
+          "name": "kurbo",
+          "kind": null
+        },
+        {
+          "name": "thiserror",
+          "kind": null
+        }
+      ]
+    },
+    {
+      "name": "wordcraft-layout",
+      "dependencies": [
+        {
+          "name": "image",
+          "kind": null
+        },
+        {
+          "name": "kurbo",
+          "kind": null
+        },
+        {
+          "name": "log",
+          "kind": null
+        },
+        {
+          "name": "serde",
+          "kind": null
+        },
+        {
+          "name": "serde_json",
+          "kind": null
+        },
+        {
+          "name": "unicode-bidi",
+          "kind": null
+        },
+        {
+          "name": "unicode-linebreak",
+          "kind": null
+        },
+        {
+          "name": "unicode-segmentation",
+          "kind": null
+        },
+        {
+          "name": "wordcraft-doc",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-fonts",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-geom",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-metafile",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "craft-proof",
+          "kind": null
+        },
+        {
+          "name": "js-sys",
+          "kind": null
+        }
+      ]
+    },
+    {
+      "name": "wordcraft-pdf",
+      "dependencies": [
+        {
+          "name": "chrono",
+          "kind": null
+        },
+        {
+          "name": "craft-pdf",
+          "kind": null
+        },
+        {
+          "name": "image",
+          "kind": null
+        },
+        {
+          "name": "kurbo",
+          "kind": null
+        },
+        {
+          "name": "log",
+          "kind": null
+        },
+        {
+          "name": "thiserror",
+          "kind": null
+        },
+        {
+          "name": "wordcraft-doc",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-fonts",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-geom",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-layout",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-metafile",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "hayro-cmap",
+          "kind": "dev"
+        },
+        {
+          "name": "hayro-interpret",
+          "kind": "dev"
+        },
+        {
+          "name": "hayro-syntax",
+          "kind": "dev"
+        },
+        {
+          "name": "js-sys",
+          "kind": null
+        }
+      ]
+    },
+    {
+      "name": "wordcraft-render",
+      "dependencies": [
+        {
+          "name": "image",
+          "kind": null
+        },
+        {
+          "name": "log",
+          "kind": null
+        },
+        {
+          "name": "vello_cpu",
+          "kind": null
+        },
+        {
+          "name": "wordcraft-doc",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-fonts",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-geom",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-layout",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-metafile",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "vello_cpu",
+          "kind": null
+        }
+      ]
+    },
+    {
+      "name": "wordcraft-mcp",
+      "dependencies": [
+        {
+          "name": "log",
+          "kind": null
+        },
+        {
+          "name": "serde_json",
+          "kind": null
+        },
+        {
+          "name": "wordcraft-control-key",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-doc",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-engine",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-render",
+          "kind": null,
+          "path": "/fixture"
+        }
+      ]
+    },
+    {
+      "name": "wordcraft-ui-egui",
+      "dependencies": [
+        {
+          "name": "craft-i18n",
+          "kind": null
+        },
+        {
+          "name": "craft-ui",
+          "kind": null
+        },
+        {
+          "name": "craft-window",
+          "kind": null
+        },
+        {
+          "name": "egui",
+          "kind": null
+        },
+        {
+          "name": "image",
+          "kind": null
+        },
+        {
+          "name": "log",
+          "kind": null
+        },
+        {
+          "name": "serde",
+          "kind": null
+        },
+        {
+          "name": "serde_json",
+          "kind": null
+        },
+        {
+          "name": "sys-locale",
+          "kind": null
+        },
+        {
+          "name": "web-time",
+          "kind": null
+        },
+        {
+          "name": "wordcraft-doc",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-engine",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-fonts",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-geom",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-layout",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-render",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-zotero",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "cfb",
+          "kind": "dev"
+        },
+        {
+          "name": "egui",
+          "kind": "dev"
+        },
+        {
+          "name": "egui_kittest",
+          "kind": "dev"
+        },
+        {
+          "name": "wordcraft-engine",
+          "kind": "dev",
+          "path": "/fixture"
+        },
+        {
+          "name": "zip",
+          "kind": "dev"
+        },
+        {
+          "name": "serde_json",
+          "kind": "build"
+        },
+        {
+          "name": "toml",
+          "kind": "build"
+        },
+        {
+          "name": "chrono",
+          "kind": null
+        },
+        {
+          "name": "craft-update",
+          "kind": null
+        },
+        {
+          "name": "js-sys",
+          "kind": null
+        },
+        {
+          "name": "zbus",
+          "kind": null
+        }
+      ]
+    },
+    {
+      "name": "wordcraft-zotero",
+      "dependencies": [
+        {
+          "name": "log",
+          "kind": null
+        },
+        {
+          "name": "serde_json",
+          "kind": null
+        },
+        {
+          "name": "thiserror",
+          "kind": null
+        },
+        {
+          "name": "wordcraft-doc",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-engine",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-formats",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "proptest",
+          "kind": "dev"
+        },
+        {
+          "name": "wordcraft-docx",
+          "kind": "dev",
+          "path": "/fixture"
+        }
+      ]
+    },
+    {
+      "name": "wordcraft",
+      "dependencies": [
+        {
+          "name": "chrono",
+          "kind": null
+        },
+        {
+          "name": "eframe",
+          "kind": null
+        },
+        {
+          "name": "egui",
+          "kind": null
+        },
+        {
+          "name": "log",
+          "kind": null
+        },
+        {
+          "name": "serde_json",
+          "kind": null
+        },
+        {
+          "name": "wordcraft-control-key",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-doc",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-engine",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-fonts",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "craft-proof",
+          "kind": null
+        },
+        {
+          "name": "wordcraft-ui-egui",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "winresource",
+          "kind": "build"
+        },
+        {
+          "name": "winit",
+          "kind": null
+        },
+        {
+          "name": "wl-clipboard-rs",
+          "kind": null
+        },
+        {
+          "name": "zbus",
+          "kind": null
+        },
+        {
+          "name": "arboard",
+          "kind": null
+        },
+        {
+          "name": "craft-print",
+          "kind": null
+        },
+        {
+          "name": "getrandom",
+          "kind": null
+        },
+        {
+          "name": "pollster",
+          "kind": null
+        },
+        {
+          "name": "rfd",
+          "kind": null
+        },
+        {
+          "name": "dispatch2",
+          "kind": null
+        },
+        {
+          "name": "fmv-macos-events",
+          "kind": null
+        },
+        {
+          "name": "objc2",
+          "kind": null
+        },
+        {
+          "name": "objc2-app-kit",
+          "kind": null
+        },
+        {
+          "name": "objc2-foundation",
+          "kind": null
+        },
+        {
+          "name": "clipboard-win",
+          "kind": null
+        },
+        {
+          "name": "open",
+          "kind": null
+        },
+        {
+          "name": "windows",
+          "kind": null
+        },
+        {
+          "name": "craft-update",
+          "kind": null
+        }
+      ]
+    },
+    {
+      "name": "wordcraft-cli",
+      "dependencies": [
+        {
+          "name": "serde_json",
+          "kind": null
+        },
+        {
+          "name": "sys-locale",
+          "kind": null
+        },
+        {
+          "name": "wordcraft-doc",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-engine",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-mcp",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-render",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-zotero",
+          "kind": null,
+          "path": "/fixture"
+        }
+      ]
+    },
+    {
+      "name": "wordcraft-web",
+      "dependencies": [
+        {
+          "name": "egui",
+          "kind": null
+        },
+        {
+          "name": "log",
+          "kind": null
+        },
+        {
+          "name": "serde_json",
+          "kind": null
+        },
+        {
+          "name": "wordcraft-doc",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-engine",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-fonts",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "wordcraft-ui-egui",
+          "kind": null,
+          "path": "/fixture"
+        },
+        {
+          "name": "eframe",
+          "kind": null
+        },
+        {
+          "name": "js-sys",
+          "kind": null
+        },
+        {
+          "name": "rfd",
+          "kind": null
+        },
+        {
+          "name": "wasm-bindgen",
+          "kind": null
+        },
+        {
+          "name": "wasm-bindgen-futures",
+          "kind": null
+        },
+        {
+          "name": "web-sys",
+          "kind": null
+        }
+      ]
+    },
+    {
+      "name": "xtask",
+      "dependencies": [
+        {
+          "name": "serde_json",
+          "kind": null
+        }
+      ]
+    }
+  ]
+}

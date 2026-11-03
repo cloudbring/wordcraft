@@ -1,0 +1,25 @@
+crate                       files    lines #[test]  proptest!
+--------------------------------------------------------------
+wordcraft                      19     3792      60          0
+wordcraft-cli                  13     1907      46          0
+wordcraft-control-key           1       87       3          0
+wordcraft-doc                  61    25290     259          0
+wordcraft-docbin               20     8941     123          2
+wordcraft-docx                107    38910     521          2
+wordcraft-engine              167    76100    1186          0
+wordcraft-fonts                19     7207     106          0
+wordcraft-formats              61    24662     301          0
+wordcraft-geom                  4     1271      20          0
+wordcraft-layout               67    37577     582          0
+wordcraft-mcp                   6     1834      31          0
+wordcraft-metafile              9     3614      65          0
+wordcraft-pdf                  14     4718      68          0
+wordcraft-render                9     4649      69          0
+wordcraft-ui-egui             190    84108    1039          0
+wordcraft-web                   6     1160       6          0
+wordcraft-zotero                9     2430      41          1
+xtask                           8     1503      33          0
+--------------------------------------------------------------
+TOTAL                         790   329760    4559          5
+
+(#[test] counts source attributes; macro-generated tests count once. Use --exact for harness counts.)

@@ -1,0 +1,192 @@
+[
+  {
+    "name": "wordcraft",
+    "counts": {
+      "files": 19,
+      "lines": 3792,
+      "tests": 60,
+      "proptests": 0
+    },
+    "harness": null
+  },
+  {
+    "name": "wordcraft-cli",
+    "counts": {
+      "files": 13,
+      "lines": 1907,
+      "tests": 46,
+      "proptests": 0
+    },
+    "harness": null
+  },
+  {
+    "name": "wordcraft-control-key",
+    "counts": {
+      "files": 1,
+      "lines": 87,
+      "tests": 3,
+      "proptests": 0
+    },
+    "harness": null
+  },
+  {
+    "name": "wordcraft-doc",
+    "counts": {
+      "files": 61,
+      "lines": 25290,
+      "tests": 259,
+      "proptests": 0
+    },
+    "harness": null
+  },
+  {
+    "name": "wordcraft-docbin",
+    "counts": {
+      "files": 20,
+      "lines": 8941,
+      "tests": 123,
+      "proptests": 2
+    },
+    "harness": null
+  },
+  {
+    "name": "wordcraft-docx",
+    "counts": {
+      "files": 107,
+      "lines": 38910,
+      "tests": 521,
+      "proptests": 2
+    },
+    "harness": null
+  },
+  {
+    "name": "wordcraft-engine",
+    "counts": {
+      "files": 167,
+      "lines": 76100,
+      "tests": 1186,
+      "proptests": 0
+    },
+    "harness": null
+  },
+  {
+    "name": "wordcraft-fonts",
+    "counts": {
+      "files": 19,
+      "lines": 7207,
+      "tests": 106,
+      "proptests": 0
+    },
+    "harness": null
+  },
+  {
+    "name": "wordcraft-formats",
+    "counts": {
+      "files": 61,
+      "lines": 24662,
+      "tests": 301,
+      "proptests": 0
+    },
+    "harness": null
+  },
+  {
+    "name": "wordcraft-geom",
+    "counts": {
+      "files": 4,
+      "lines": 1271,
+      "tests": 20,
+      "proptests": 0
+    },
+    "harness": null
+  },
+  {
+    "name": "wordcraft-layout",
+    "counts": {
+      "files": 67,
+      "lines": 37577,
+      "tests": 582,
+      "proptests": 0
+    },
+    "harness": null
+  },
+  {
+    "name": "wordcraft-mcp",
+    "counts": {
+      "files": 6,
+      "lines": 1834,
+      "tests": 31,
+      "proptests": 0
+    },
+    "harness": null
+  },
+  {
+    "name": "wordcraft-metafile",
+    "counts": {
+      "files": 9,
+      "lines": 3614,
+      "tests": 65,
+      "proptests": 0
+    },
+    "harness": null
+  },
+  {
+    "name": "wordcraft-pdf",
+    "counts": {
+      "files": 14,
+      "lines": 4718,
+      "tests": 68,
+      "proptests": 0
+    },
+    "harness": null
+  },
+  {
+    "name": "wordcraft-render",
+    "counts": {
+      "files": 9,
+      "lines": 4649,
+      "tests": 69,
+      "proptests": 0
+    },
+    "harness": null
+  },
+  {
+    "name": "wordcraft-ui-egui",
+    "counts": {
+      "files": 190,
+      "lines": 84108,
+      "tests": 1039,
+      "proptests": 0
+    },
+    "harness": null
+  },
+  {
+    "name": "wordcraft-web",
+    "counts": {
+      "files": 6,
+      "lines": 1160,
+      "tests": 6,
+      "proptests": 0
+    },
+    "harness": null
+  },
+  {
+    "name": "wordcraft-zotero",
+    "counts": {
+      "files": 9,
+      "lines": 2430,
+      "tests": 41,
+      "proptests": 1
+    },
+    "harness": null
+  },
+  {
+    "name": "xtask",
+    "counts": {
+      "files": 8,
+      "lines": 1503,
+      "tests": 33,
+      "proptests": 0
+    },
+    "harness": null
+  }
+]

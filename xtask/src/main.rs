@@ -1,18 +1,15 @@
 //! Workspace tooling: `cargo xtask <command>`.
 //!
-//! Pure Rust (std + serde_json). External tools (`cargo`, `curl`, `tar`) are
+//! Shared tasks use `craft-xtask`. External tools (`cargo`, `curl`, `tar`) are
 //! invoked through `std::process::Command`.
 
 mod assets;
-mod ico;
-mod layers;
-mod parity;
-mod stats;
-mod version;
 mod visual_diff;
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode, Stdio};
+
+use craft_xtask::{Cargo, ico, layers, parity, stats, version};
 
 const USAGE: &str = "\
 usage: cargo xtask <command>
@@ -44,22 +41,31 @@ commands:
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let rest: Vec<&str> = args.iter().skip(1).map(String::as_str).collect();
+    let task_args = args.get(1..).unwrap_or_default();
+    let stats_args = if rest.contains(&"--exact") { vec!["--exact".into()] } else { Vec::new() };
     let result = match args.first().map(String::as_str) {
         Some("assets") => assets::run(&root()),
-        Some("layers") => cmd_layers(),
+        Some("layers") => cmd_layers(task_args),
         Some("wasm") => cmd_wasm(),
         Some("test") => cmd_test().and_then(|()| cmd_i18n_report()).and_then(|()| cmd_doctest()),
         Some("i18n-report") => cmd_i18n_report(),
         Some("language") => cmd_language(),
         Some("ci") => cmd_ci(),
         Some("corpus") => cmd_corpus(rest.contains(&"--download")),
-        Some("stats") => stats::run(&root(), rest.contains(&"--exact")),
-        Some("parity") => parity::run(&root()),
-        Some("ico") => ico::run(&rest),
+        Some("stats") => stats::run(&stats_config(&root()), &stats_args),
+        Some("parity") => cmd_parity(task_args),
+        Some("ico") => ico::run(&ico::Config::default(), task_args),
         Some("visual-diff") => visual_diff::run(&rest),
-        Some("version") => version::run(&root(), &rest),
+        Some("version") => version::run(&version_config(&root()), task_args),
         Some("-h" | "--help" | "help") | None => {
-            print!("{USAGE}");
+            print!(
+                "{USAGE}\nShared task syntax:\n  {}\n  {}\n  {}\n  {}\n  {}\n",
+                version::cli_help(),
+                stats::cli_help(),
+                ico::cli_help(),
+                layers::cli_help(),
+                parity::cli_help(),
+            );
             Ok(())
         }
         Some(other) => Err(format!("unknown command `{other}`\n\n{USAGE}")),
@@ -75,7 +81,9 @@ fn main() -> ExitCode {
 
 /// Workspace root (parent of the xtask crate).
 pub fn root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).parent().expect("xtask has a parent dir").to_path_buf()
+    let dir = std::env::var_os("CARGO_MANIFEST_DIR").map(PathBuf::from).filter(|dir| dir.join("Cargo.toml").is_file());
+    let dir = dir.unwrap_or_else(|| PathBuf::from(env!("CARGO_MANIFEST_DIR")));
+    dir.parent().unwrap_or(Path::new(".")).to_path_buf()
 }
 
 pub fn cargo() -> Command {
@@ -98,11 +106,72 @@ pub fn metadata() -> Result<serde_json::Value, String> {
     serde_json::from_slice(&out.stdout).map_err(|e| format!("cargo metadata: bad JSON: {e}"))
 }
 
-fn cmd_layers() -> Result<(), String> {
-    let crates = layers::from_metadata(&metadata()?)?;
+pub fn version_config(root: &Path) -> version::Config {
+    version::Config { cargo: Cargo { root: root.into(), ..Cargo::default() }, ..version::Config::default() }
+}
+
+pub fn stats_config(root: &Path) -> stats::Config {
+    stats::Config { cargo: Cargo { root: root.into(), ..Cargo::default() }, follow_symlinks: true, ..stats::Config::default() }
+}
+
+pub fn parity_config(root: &Path) -> parity::Config {
+    parity::Config {
+        cargo: Cargo { root: root.into(), ..Cargo::default() },
+        command: Some(["run", "-q", "-p", "wordcraft-cli", "--", "parity", "--markdown"].map(Into::into).to_vec()),
+        ..parity::Config::default()
+    }
+}
+
+fn names(values: &[&str]) -> Vec<String> {
+    values.iter().map(|v| (*v).into()).collect()
+}
+
+pub fn layers_config(root: &Path) -> layers::Config {
+    layers::Config {
+        root: root.into(),
+        layers: [
+            ("L0", names(&["wordcraft-geom", "wordcraft-control-key"])),
+            ("L1", names(&["wordcraft-doc", "wordcraft-fonts", "wordcraft-metafile"])),
+            ("L2", names(&["wordcraft-layout", "wordcraft-docx", "wordcraft-docbin", "wordcraft-formats"])),
+            ("L3", names(&["wordcraft-render", "wordcraft-pdf"])),
+            ("L4", names(&["wordcraft-engine"])),
+            ("L5", names(&["wordcraft-mcp", "wordcraft-zotero"])),
+            ("L6", names(&["wordcraft-ui-egui", "wordcraft-testkit"])),
+        ]
+        .into_iter()
+        .map(|(label, members)| (label.into(), members))
+        .collect(),
+        exempt: names(&["wordcraft", "wordcraft-cli", "wordcraft-web", "xtask"]),
+        standalone: names(&["wordcraft-control-key"]),
+        testkits: names(&["wordcraft-testkit"]),
+        allowed_edges: vec![("wordcraft-fonts".into(), "wordcraft-doc".into())],
+        external_rules: vec![layers::ExternalRule {
+            dependencies: names(&["egui", "eframe", "winit", "egui_kittest", "rfd", "bevy*"]),
+            allowed_from: names(&["wordcraft-ui-egui", "wordcraft-testkit"]),
+            allowed_dev_from: Vec::new(),
+        }],
+        ..layers::Config::default()
+    }
+}
+
+fn describe_layer<'a>(cfg: &'a layers::Config, name: &str) -> &'a str {
+    if cfg.exempt.iter().any(|m| m == name) {
+        "exempt"
+    } else if cfg.standalone.iter().any(|m| m == name) {
+        "L0 standalone"
+    } else if cfg.testkits.iter().any(|m| m == name) {
+        "testkit"
+    } else {
+        cfg.layers.iter().find(|(_, members)| members.iter().any(|m| m == name)).map(|(label, _)| label.as_str()).unwrap_or("UNREGISTERED")
+    }
+}
+
+fn cmd_layers(args: &[String]) -> Result<(), String> {
+    let cfg = layers_config(&root());
+    let report = layers::compute(&cfg, &layers::Args::parse(args)?)?;
     println!("Dependency layering (plan/architecture.md §3)\n");
     println!("{:<28} {:<14} workspace deps", "crate", "layer");
-    for c in &crates {
+    for c in &report.crates {
         let ws: Vec<String> = c
             .deps
             .iter()
@@ -113,36 +182,47 @@ fn cmd_layers() -> Result<(), String> {
                     layers::DepKind::Dev => " (dev)",
                     layers::DepKind::Build => " (build)",
                 };
-                format!("{}{k}", layers::short_name(&d.name))
+                format!("{}{k}", d.name.strip_prefix("wordcraft-").unwrap_or(&d.name))
             })
             .collect();
-        println!("{:<28} {:<14} {}", c.name, layers::describe(layers::classify(&c.name)), ws.join(", "));
+        println!("{:<28} {:<14} {}", c.name, describe_layer(&cfg, &c.name), ws.join(", "));
     }
-    let violations = layers::check(&crates);
     println!();
-    if violations.is_empty() {
-        println!("OK: {} crates, no layering violations.", crates.len());
+    if report.ok {
+        println!("OK: {} crates, no layering violations.", report.crates.len());
         Ok(())
     } else {
-        println!("{} violation(s):", violations.len());
-        for v in &violations {
+        println!("{} violation(s):", report.violations.len());
+        for v in &report.violations {
             println!("  - {v}");
         }
-        Err(format!("{} layering violation(s)", violations.len()))
+        Err(format!("{} layering violation(s)", report.violations.len()))
     }
+}
+
+fn cmd_parity(args: &[String]) -> Result<(), String> {
+    let args = parity::Args::parse(args)?;
+    let report = parity::compute(&parity_config(&root()), &args)?;
+    if !args.check {
+        parity::apply(&report)?;
+    }
+    if let Some(line) = report.updated.lines().find(|l| l.starts_with("**")) {
+        println!("{line}");
+    }
+    if !args.check {
+        println!("wrote {}", report.path.display());
+    }
+    Ok(())
 }
 
 /// Workspace packages that must build for wasm32: all L0–L5 crates plus
 /// the egui shell.
 fn wasm_set() -> Result<Vec<String>, String> {
+    let cfg = layers_config(&root());
     let crates = layers::from_metadata(&metadata()?)?;
     Ok(crates
         .into_iter()
-        .filter(|c| match layers::classify(&c.name) {
-            Some(layers::Class::Layer(l)) => l <= 5 || layers::short_name(&c.name) == "ui-egui",
-            Some(layers::Class::Standalone) => true,
-            _ => false,
-        })
+        .filter(|c| cfg.layers.iter().take(6).any(|(_, m)| m.contains(&c.name)) || c.name == "wordcraft-ui-egui")
         .map(|c| c.name)
         .collect())
 }
@@ -242,7 +322,7 @@ fn cmd_ci() -> Result<(), String> {
         ("language", Box::new(cmd_language)),
         ("doctest", Box::new(cmd_doctest)),
         ("assets", Box::new(|| assets::run(&root()))),
-        ("layers", Box::new(cmd_layers)),
+        ("layers", Box::new(|| cmd_layers(&[]))),
         ("wasm", Box::new(cmd_wasm)),
     ];
     let mut done = Vec::new();
