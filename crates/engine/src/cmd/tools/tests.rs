@@ -267,11 +267,10 @@ fn compare_fixture_changed_word_counts_hold() {
 
 /// #53: the worst shapes at 50,000 paragraphs a side — repeated vocabulary with scattered
 /// edits (histogram anchors, then Myers per gap), a block swap of repeated paragraphs, and two
-/// documents with nothing in common — all finish bounded and fast, and no quadratic table is
-/// built above the old cap: the only table-shaped allocation left is Myers' saved frontiers.
+/// documents with nothing in common — all finish bounded and fast; the peak-allocation proof
+/// (no table above Myers' saved frontiers) went to craft-diff with the algorithm (#53).
 #[test]
 fn compare_fifty_thousand_paragraph_pairs_stay_bounded() {
-    PEAK_TABLE_CELLS.store(0, std::sync::atomic::Ordering::Relaxed);
     let start = std::time::Instant::now();
     let vocab: Vec<String> = (0..50).map(|i| format!("w{i}")).collect();
     let old: Vec<String> = (0..50_000).map(|i| vocab[i % 50].clone()).collect();
@@ -301,14 +300,8 @@ fn compare_fifty_thousand_paragraph_pairs_stay_bounded() {
     assert_eq!(r["changes"], 50_000);
 
     let elapsed = start.elapsed();
-    let peak = PEAK_TABLE_CELLS.load(std::sync::atomic::Ordering::Relaxed);
-    eprintln!("50,000-paragraph pairs: {elapsed:?}, peak table {peak} cells");
+    eprintln!("50,000-paragraph pairs: {elapsed:?}");
     assert!(elapsed < std::time::Duration::from_secs(30), "{elapsed:?}");
-    // No O(n·m) table above the cap: Myers' frontiers for a segment of at most DIRECT
-    // elements span at most DIRECT² + 3·DIRECT + 3 cells, under the old table cap of
-    // MAX_LCS × MAX_LCS — where a 50,000 × 50,000 compare would want 2.5 billion.
-    const _: () = assert!(DIRECT * DIRECT + 3 * DIRECT + 3 <= MAX_LCS * MAX_LCS);
-    assert!(peak <= MAX_LCS as u64 * MAX_LCS as u64, "{peak} table cells");
 }
 
 #[test]

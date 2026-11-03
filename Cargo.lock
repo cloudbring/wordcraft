@@ -1020,6 +1020,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "craft-diff"
+version = "0.1.0"
+source = "git+https://github.com/cloudbring/craft-libs?branch=algo%2Fintegration#91e0328f63f027086214472d48cfb4909d95a2a6"
+
+[[package]]
 name = "craft-font-catalog"
 version = "0.1.0"
 source = "git+https://github.com/storytold/craft-libs?rev=762a06a4c6b48b522b7d4de84a87917ef90265e6#762a06a4c6b48b522b7d4de84a87917ef90265e6"
@@ -6863,6 +6868,7 @@ version = "0.15.0"
 dependencies = [
  "cfb",
  "chrono",
+ "craft-diff",
  "craft-font-catalog",
  "craft-font-store",
  "craft-proof",
