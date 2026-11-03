@@ -135,10 +135,10 @@ pub fn image_size(bytes: &[u8]) -> Option<(u32, u32)> {
 /// extension it is stored under (`"wmf"` or `"emf"`), or None for anything else (#802). Very large
 /// frames are scaled down to 22 inches on the longer side, keeping the shape.
 pub fn metafile_size(bytes: &[u8]) -> Option<(f32, f32, &'static str)> {
-    if !wordcraft_metafile::is_metafile(bytes) {
+    if !craft_metafile::is_metafile(bytes) {
         return None;
     }
-    let pic = wordcraft_metafile::parse(bytes).ok()?;
+    let pic = craft_metafile::parse(bytes).ok()?;
     let (w, h) = (pic.width, pic.height);
     if !(w.is_finite() && h.is_finite() && w > 0.0 && h > 0.0) {
         return None;
@@ -167,6 +167,7 @@ impl Vector {
             .map(|it| match it {
                 Item::Path { segs, .. } => segs.len() * std::mem::size_of::<Seg>(),
                 Item::Bitmap { .. } => 0,
+                Item::Pattern { segs, tile, .. } => segs.len() * std::mem::size_of::<Seg>() + tile.rgba.len(),
                 Item::Text(t) => t.text.len() + t.dx.len() * 4,
             })
             .sum();
@@ -178,7 +179,7 @@ impl Vector {
 /// the caller falls back to the raster path (and the grey box).
 pub(crate) fn vector_for(doc: &Document, key: &str) -> Option<Arc<Vector>> {
     let bytes = doc.media.get(key)?;
-    if !wordcraft_metafile::is_metafile(bytes) {
+    if !craft_metafile::is_metafile(bytes) {
         return None;
     }
     if let Some(v) = lock(vectors()).get(key, bytes) {
@@ -195,12 +196,20 @@ pub(crate) fn vector_for(doc: &Document, key: &str) -> Option<Arc<Vector>> {
 
 /// Parses a metafile and decodes its bitmaps. None when the picture has no usable size.
 fn build_vector(bytes: &[u8]) -> Option<Vector> {
-    let mut pic = wordcraft_metafile::parse(bytes).ok()?;
+    let mut pic = craft_metafile::parse(bytes).ok()?;
     if !pic.has_size() {
         return None;
     }
     // The pixels move into the pixmaps; the picture keeps only the geometry.
-    let pixmaps = pic.items.iter_mut().map(|it| it.take_pixels().and_then(|(w, h, px)| premul_pixmap(w, h, &px)).map(Arc::new)).collect();
+    let pixmaps = pic
+        .items
+        .iter_mut()
+        .map(|item| match item {
+            Item::Pattern { tile, .. } => premul_pixmap(tile.width, tile.height, &tile.rgba),
+            _ => item.take_pixels().and_then(|(w, h, px)| premul_pixmap(w, h, &px)),
+        })
+        .map(|pixmap| pixmap.map(Arc::new))
+        .collect();
     Some(Vector { pic, pixmaps })
 }
 
@@ -222,8 +231,11 @@ pub(crate) fn draw_vector(ctx: &mut RenderContext, v: &Vector, r: &kurbo::Rect, 
     ctx.push_clip_layer(&r.to_path(0.1));
     let pixel = device_pixel(view);
     for it in v.pic.place(*r, *crop) {
+        // The shared scene carries GDI clip regions. WordCraft's old scene omitted them, so these
+        // consumers intentionally retain their previous unclipped rendering until region clipping
+        // can be threaded through vello_cpu and Krilla together.
         match it {
-            PlacedItem::Path { path, fill, stroke, even_odd } => {
+            PlacedItem::Path { path, fill, stroke, even_odd, .. } => {
                 if let Some(f) = fill {
                     ctx.set_paint(rgba_color(f));
                     ctx.set_fill_rule(if even_odd { peniko::Fill::EvenOdd } else { peniko::Fill::NonZero });
@@ -235,7 +247,7 @@ pub(crate) fn draw_vector(ctx: &mut RenderContext, v: &Vector, r: &kurbo::Rect, 
                     ctx.stroke_path(&path);
                 }
             }
-            PlacedItem::Bitmap { index, rect } => {
+            PlacedItem::Bitmap { index, rect, .. } => {
                 let Some(Some(pm)) = v.pixmaps.get(index) else { continue };
                 let (pw, ph) = (pm.width().max(1) as f64, pm.height().max(1) as f64);
                 ctx.set_paint(vello_cpu::Image {
@@ -246,9 +258,20 @@ pub(crate) fn draw_vector(ctx: &mut RenderContext, v: &Vector, r: &kurbo::Rect, 
                 ctx.fill_rect(&rect);
                 ctx.reset_paint_transform();
             }
-            PlacedItem::Text { index, tf } => {
+            PlacedItem::Pattern { index, path, even_odd, tile, .. } => {
+                let Some(Some(pm)) = v.pixmaps.get(index) else { continue };
+                ctx.set_paint(vello_cpu::Image {
+                    image: vello_cpu::ImageSource::Pixmap(pm.clone()),
+                    sampler: peniko::ImageSampler::default().with_quality(peniko::ImageQuality::Medium).with_extend(peniko::Extend::Repeat),
+                });
+                ctx.set_paint_transform(tile);
+                ctx.set_fill_rule(if even_odd { peniko::Fill::EvenOdd } else { peniko::Fill::NonZero });
+                ctx.fill_path(&path);
+                ctx.reset_paint_transform();
+            }
+            PlacedItem::Text { index, transform, .. } => {
                 if let Some(Item::Text(t)) = v.pic.items.get(index) {
-                    draw_vector_text(ctx, t, view * tf);
+                    draw_vector_text(ctx, t, view * transform);
                 }
                 ctx.set_transform(view);
             }
@@ -262,8 +285,8 @@ pub(crate) fn draw_vector(ctx: &mut RenderContext, v: &Vector, r: &kurbo::Rect, 
 }
 
 /// Draws a metafile text run: `tf` maps the run's own space (see [`PlacedItem::Text`]) to the device.
-fn draw_vector_text(ctx: &mut RenderContext, t: &wordcraft_metafile::Text, tf: Affine) {
-    let face = wordcraft_fonts::word::resolve(&t.font, t.bold, t.italic).face;
+fn draw_vector_text(ctx: &mut RenderContext, t: &craft_metafile::Text, tf: Affine) {
+    let face = wordcraft_fonts::word::resolve(&t.font.family, t.font.weight >= 700, t.font.italic).face;
     let shaped = wordcraft_fonts::shape(&face, &t.text, &[], |c| c);
     let glyphs: Vec<_> = shaped.iter().map(|g| (g.cluster, f64::from(g.x_advance), f64::from(g.x_offset), f64::from(g.y_offset))).collect();
     let Some(lay) = t.layout(face.upem, face.ascent, face.descent, &glyphs) else { return };

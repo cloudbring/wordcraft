@@ -1079,6 +1079,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "craft-metafile"
+version = "0.1.0"
+source = "git+https://github.com/cloudbring/craft-libs?branch=algo%2Fintegration#89133cd7c5d061ebd6ffcb933dd786c42794f07c"
+dependencies = [
+ "image",
+ "kurbo",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "craft-pdf"
 version = "0.1.0"
 source = "git+https://github.com/storytold/craft-libs?rev=92d392cff132eaf53e13afff77f38b5c11b73aa0#92d392cff132eaf53e13afff77f38b5c11b73aa0"
@@ -6911,6 +6921,7 @@ dependencies = [
  "cfb",
  "chardetng",
  "chrono",
+ "craft-metafile",
  "encoding_rs",
  "image",
  "js-sys",
@@ -6919,7 +6930,6 @@ dependencies = [
  "quick-xml 0.41.0",
  "wordcraft-doc",
  "wordcraft-geom",
- "wordcraft-metafile",
  "zip 3.0.0",
 ]
 
@@ -6935,6 +6945,7 @@ dependencies = [
 name = "wordcraft-layout"
 version = "0.15.0"
 dependencies = [
+ "craft-metafile",
  "craft-proof",
  "image",
  "js-sys",
@@ -6948,7 +6959,6 @@ dependencies = [
  "wordcraft-doc",
  "wordcraft-fonts",
  "wordcraft-geom",
- "wordcraft-metafile",
 ]
 
 [[package]]
@@ -6964,18 +6974,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "wordcraft-metafile"
-version = "0.15.0"
-dependencies = [
- "kurbo",
- "thiserror 2.0.21",
-]
-
-[[package]]
 name = "wordcraft-pdf"
 version = "0.15.0"
 dependencies = [
  "chrono",
+ "craft-metafile",
  "craft-pdf",
  "hayro-cmap",
  "hayro-interpret",
@@ -6989,13 +6992,13 @@ dependencies = [
  "wordcraft-fonts",
  "wordcraft-geom",
  "wordcraft-layout",
- "wordcraft-metafile",
 ]
 
 [[package]]
 name = "wordcraft-render"
 version = "0.15.0"
 dependencies = [
+ "craft-metafile",
  "image",
  "log",
  "vello_cpu",
@@ -7003,7 +7006,6 @@ dependencies = [
  "wordcraft-fonts",
  "wordcraft-geom",
  "wordcraft-layout",
- "wordcraft-metafile",
 ]
 
 [[package]]

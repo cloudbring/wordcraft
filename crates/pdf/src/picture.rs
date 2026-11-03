@@ -16,7 +16,7 @@ pub(crate) struct Vector {
 
 /// Parses a metafile and embeds its bitmaps. None when the picture has no usable size.
 pub(crate) fn build_vector(bytes: &[u8]) -> Option<Vector> {
-    let mut pic = wordcraft_metafile::parse(bytes).ok()?;
+    let mut pic = craft_metafile::parse(bytes).ok()?;
     if !pic.has_size() {
         return None;
     }
@@ -46,8 +46,11 @@ pub(crate) fn vector_picture(ex: &mut Exporter, s: &mut Surface, v: &Vector, r: 
     }
     s.push_clip_path(clip, &FillRule::NonZero);
     for it in v.pic.place(target, *crop) {
+        // The shared scene carries GDI clip regions. WordCraft's old scene omitted them, so this
+        // renderer intentionally retains its previous unclipped output until Krilla gains the
+        // matching per-item clip composition.
         match it {
-            PlacedItem::Path { path, fill, stroke, even_odd } => {
+            PlacedItem::Path { path, fill, stroke, even_odd, .. } => {
                 let Some(p) = path_from(&path) else { continue };
                 let fill = fill.map(|c| {
                     let (paint, opacity) = paint_of(c);
@@ -69,16 +72,26 @@ pub(crate) fn vector_picture(ex: &mut Exporter, s: &mut Surface, v: &Vector, r: 
                 s.set_stroke(stroke);
                 s.draw_path(&p);
             }
-            PlacedItem::Bitmap { index, rect } => {
+            PlacedItem::Bitmap { index, rect, .. } => {
                 let Some(Some(img)) = v.images.get(index) else { continue };
                 let Some(size) = Size::from_wh(rect.width() as f32, rect.height() as f32) else { continue };
                 s.push_transform(&Transform::from_translate(rect.x0 as f32, rect.y0 as f32));
                 s.draw_image(img.clone(), size);
                 s.pop();
             }
-            PlacedItem::Text { index, tf } => {
-                if let Some(wordcraft_metafile::Item::Text(t)) = v.pic.items.get(index) {
-                    ex.vector_text(s, t, tf);
+            PlacedItem::Pattern { index, path, even_odd, .. } => {
+                let Some(p) = path_from(&path) else { continue };
+                let Some(craft_metafile::Item::Pattern { tile, .. }) = v.pic.items.get(index) else { continue };
+                let Some(color) = tile.rgba.as_chunks::<4>().0.iter().find(|pixel| pixel[3] != 0) else { continue };
+                let (paint, opacity) = paint_of([color[0], color[1], color[2], color[3]]);
+                let rule = if even_odd { FillRule::EvenOdd } else { FillRule::NonZero };
+                s.set_fill(Some(Fill { paint: paint.into(), opacity, rule }));
+                s.set_stroke(None);
+                s.draw_path(&p);
+            }
+            PlacedItem::Text { index, transform, .. } => {
+                if let Some(craft_metafile::Item::Text(t)) = v.pic.items.get(index) {
+                    ex.vector_text(s, t, transform);
                 }
             }
         }

@@ -157,7 +157,7 @@ impl Reader {
         let w = self.pict_w.map(|v| v * sx);
         let h = self.pict_h.map(|v| v * sy);
         // The control word only says "a metafile": the bytes decide what it is (#4259).
-        let img = if matches!(self.pict_kind, 3 | 4) && wordcraft_metafile::is_metafile(&data) {
+        let img = if matches!(self.pict_kind, 3 | 4) && craft_metafile::is_metafile(&data) {
             // An EMF starts with its header record, type 1.
             let ext = if data.get(..4) == Some(&[1, 0, 0, 0]) { "emf" } else { "wmf" };
             // `\picw`/`\pich` are in the units of the `\wmetafileN` mapping mode; 0.01 mm for the
