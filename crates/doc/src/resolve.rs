@@ -370,7 +370,14 @@ impl StyleSheet {
         if let Some(t) = table {
             defaults.overlay(&CharProps { style: None, ..t.clone() });
         }
-        let (_, mut cp) = self.para_style_props_over(para_style.unwrap_or("Normal"), ParaProps::default(), defaults);
+        let mut cp = defaults;
+        let style = para_style.unwrap_or("Normal");
+        let style = if self.get(style).is_some() { style } else { "Normal" };
+        for s in self.chain(style) {
+            if s.kind == StyleKind::Paragraph {
+                cp.overlay(&s.chr);
+            }
+        }
         if let Some(cs) = c.style.as_deref() {
             for s in self.chain(cs) {
                 if s.kind == StyleKind::Character || s.kind == StyleKind::Paragraph {
@@ -390,6 +397,29 @@ impl StyleSheet {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    proptest::proptest! {
+        #[test]
+        fn paragraph_character_walk_matches_previous_walk(
+            links in proptest::collection::vec(proptest::option::of(0usize..10), 0..10),
+            sizes in proptest::collection::vec(proptest::option::of(1u16..100), 10),
+            start in 0usize..12,
+        ) {
+            let mut sheet = StyleSheet::empty();
+            for (index, link) in links.iter().enumerate() {
+                sheet.styles.push(crate::styles::Style {
+                    id: index.to_string(),
+                    based_on: link.map(|parent| parent.to_string()),
+                    chr: CharProps { size: sizes[index].map(f32::from), ..Default::default() },
+                    ..Default::default()
+                });
+            }
+            let id = start.to_string();
+            let (_, expected) = sheet.para_style_props_over(&id, ParaProps::default(), sheet.default_chr.clone());
+            let actual = sheet.resolve_char(Some(&id), &CharProps::default());
+            proptest::prop_assert_eq!(actual, ResolvedChar::from(&expected));
+        }
+    }
 
     /// #2036: only a character itself (direct formatting) has a symbol font of its own; a
     /// style never gives one to its text.
