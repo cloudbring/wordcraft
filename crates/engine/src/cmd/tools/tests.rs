@@ -193,6 +193,124 @@ fn compare_bounds_total_diff_work() {
     assert_eq!(s.doc.plain_text(StoryRef::Body), revised);
 }
 
+/// #53: words marked inserted or deleted across the body — the diff-quality metric.
+fn compare_changed_words(s: &Session) -> usize {
+    let mut n = 0;
+    for b in &s.doc.body {
+        let Block::Para(p) = &**b else { continue };
+        for (r, c) in p.run_ranges() {
+            if c.ins.is_some() || c.del.is_some() {
+                n += p.text[r].split_whitespace().count();
+            }
+        }
+    }
+    n
+}
+
+/// #53: two 10,000-paragraph documents over a 50-word vocabulary, 20 scattered single-word
+/// changes. No paragraph is unique in either document, so there is nothing to patience-anchor
+/// on; past the LCS cap the quadratic diff replaced the whole matching middle wholesale
+/// (thousands of changed paragraphs), where the anchored diff keeps exactly the 20 changed
+/// paragraphs and their <= 40 changed words.
+#[test]
+fn compare_repetitive_vocabulary_keeps_scattered_edits() {
+    let vocab: Vec<String> = (0..50).map(|i| format!("term{i}")).collect();
+    let old: Vec<String> = (0..10_000).map(|i| vocab[i % 50].clone()).collect();
+    let mut new = old.clone();
+    for k in 0..20 {
+        let at = 199 + 487 * k;
+        new[at] = vocab[(at + 7) % 50].clone();
+    }
+    let mut s = Session::new(Document::from_text(&old.join("\n")));
+    let start = std::time::Instant::now();
+    let r = s.run("review.compare", &json!({"text": new.join("\n")})).unwrap();
+    eprintln!("10,000-paragraph pair: {} changes, {} changed words, {:?}", r["changes"], compare_changed_words(&s), start.elapsed());
+    assert_eq!(r["changes"], 20, "the matching middle was replaced wholesale");
+    assert!(compare_changed_words(&s) <= 40, "{} changed words", compare_changed_words(&s));
+    s.run("review.acceptAll", &json!({})).unwrap();
+    assert_eq!(s.doc.plain_text(StoryRef::Body), new.join("\n"));
+}
+
+/// #53: the anchored diff must not enlarge the diff on the existing fixtures: the changed
+/// elements and changed words per fixture, as measured with the capped quadratic LCS, hold.
+#[test]
+fn compare_fixture_changed_word_counts_hold() {
+    let run = |original: &str, revised: &str, level: &str| {
+        let mut s = Session::new(Document::from_text(original));
+        let r = s.run("review.compare", &json!({"text": revised, "level": level})).unwrap();
+        (r["changes"].as_u64().unwrap(), compare_changed_words(&s))
+    };
+    let cases = [
+        ("one word replaced", "The cat sat.", "The dog sat.", "word", 1, 2),
+        ("a line replaced", "The cat sat.\nKeep this.\nOld line.", "The dog sat.\nKeep this.\nNew line here.", "word", 2, 7),
+        ("deleted and inserted paragraphs", "alpha\nbeta\ngamma\ndelta", "alpha\ngamma\ndelta epsilon", "word", 2, 4),
+        ("a whole line replaced", "a b c", "x y z", "word", 1, 6),
+        ("dates at character level", "zawarta w dniu 01.09.2026 pomiedzy:", "zawarta w dniu 19.10.2026 pomiedzy:", "character", 1, 2),
+        ("a matched word between edits", "the cat sat", "a cat ran", "word", 1, 4),
+    ];
+    for (name, original, revised, level, changes, words) in cases {
+        let (got_changes, got_words) = run(original, revised, level);
+        assert_eq!((got_changes, got_words), (changes, words), "{name}");
+    }
+    // The budget fixture of `compare_bounds_total_diff_work`: five pairs diffed word by word
+    // (600 changed words each), the rest replaced whole with their common edges kept.
+    let words = 3000;
+    let paras = 12;
+    let doc = |rev: bool| -> String {
+        (0..paras)
+            .map(|p| (0..words).map(|w| if w % 10 == 0 && rev { format!("x{p}w{w}") } else { format!("p{p}w{w}") }).collect::<Vec<_>>().join(" "))
+            .collect::<Vec<_>>()
+            .join("\n")
+    };
+    assert_eq!(run(&doc(false), &doc(true), "word"), (12, 44_874), "budget-limited pairs");
+}
+
+/// #53: the worst shapes at 50,000 paragraphs a side — repeated vocabulary with scattered
+/// edits (histogram anchors, then Myers per gap), a block swap of repeated paragraphs, and two
+/// documents with nothing in common — all finish bounded and fast, and no quadratic table is
+/// built above the old cap: the only table-shaped allocation left is Myers' saved frontiers.
+#[test]
+fn compare_fifty_thousand_paragraph_pairs_stay_bounded() {
+    PEAK_TABLE_CELLS.store(0, std::sync::atomic::Ordering::Relaxed);
+    let start = std::time::Instant::now();
+    let vocab: Vec<String> = (0..50).map(|i| format!("w{i}")).collect();
+    let old: Vec<String> = (0..50_000).map(|i| vocab[i % 50].clone()).collect();
+    let mut new = old.clone();
+    for k in 0..100 {
+        let at = 101 + 431 * k;
+        new[at] = vocab[(at + 11) % 50].clone();
+    }
+    let mut s = Session::new(Document::from_text(&old.join("\n")));
+    let r = s.run("review.compare", &json!({"text": new.join("\n")})).unwrap();
+    eprintln!("50,000-paragraph pair: {} changes, {} changed words", r["changes"], compare_changed_words(&s));
+    assert_eq!(r["changes"], 100, "the matching middle was replaced wholesale");
+    assert!(compare_changed_words(&s) <= 200, "{} changed words", compare_changed_words(&s));
+
+    let block = |first: &str, second: &str| (0..50_000).map(|i| if i < 25_000 { first } else { second }.to_string()).collect::<Vec<_>>().join("\n");
+    let mut s = Session::new(Document::from_text(&block("alpha", "beta")));
+    let r = s.run("review.compare", &json!({"text": block("beta", "alpha")})).unwrap();
+    eprintln!("block swap: {} changes, {} changed words", r["changes"], compare_changed_words(&s));
+    // A block swap of repeated paragraphs has no monotone match beyond one half.
+    assert_eq!(compare_changed_words(&s), 50_000);
+
+    let old: Vec<String> = (0..50_000).map(|i| format!("x{i}")).collect();
+    let new: Vec<String> = (0..50_000).map(|i| format!("y{i}")).collect();
+    let mut s = Session::new(Document::from_text(&old.join("\n")));
+    let r = s.run("review.compare", &json!({"text": new.join("\n")})).unwrap();
+    eprintln!("nothing in common: {} changes", r["changes"]);
+    assert_eq!(r["changes"], 50_000);
+
+    let elapsed = start.elapsed();
+    let peak = PEAK_TABLE_CELLS.load(std::sync::atomic::Ordering::Relaxed);
+    eprintln!("50,000-paragraph pairs: {elapsed:?}, peak table {peak} cells");
+    assert!(elapsed < std::time::Duration::from_secs(30), "{elapsed:?}");
+    // No O(n·m) table above the cap: Myers' frontiers for a segment of at most DIRECT
+    // elements span at most DIRECT² + 3·DIRECT + 3 cells, under the old table cap of
+    // MAX_LCS × MAX_LCS — where a 50,000 × 50,000 compare would want 2.5 billion.
+    const _: () = assert!(DIRECT * DIRECT + 3 * DIRECT + 3 <= MAX_LCS * MAX_LCS);
+    assert!(peak <= MAX_LCS as u64 * MAX_LCS as u64, "{peak} table cells");
+}
+
 #[test]
 fn macros_record_and_run() {
     let mut s = Session::new(Document::new());
