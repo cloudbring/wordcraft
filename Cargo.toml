@@ -31,6 +31,8 @@ wordcraft-pdf = { path = "crates/pdf" }
 wordcraft-proof = { package = "craft-proof", git = "https://github.com/storytold/craft-libs", rev = "89fa1559e94378ecef85cd7e4681400f4df053e0", version = "=0.1.0" }
 craft-font-store = { git = "https://github.com/storytold/craft-libs", rev = "762a06a4c6b48b522b7d4de84a87917ef90265e6", version = "=0.1.0" }
 craft-font-catalog = { git = "https://github.com/storytold/craft-libs", rev = "762a06a4c6b48b522b7d4de84a87917ef90265e6", version = "=0.1.0" }
+# TODO: repoint to storytold/craft-libs after upstream merge
+craft-cfb = { git = "https://github.com/cloudbring/craft-libs", branch = "algo/integration" }
 wordcraft-engine = { path = "crates/engine" }
 wordcraft-mcp = { path = "crates/mcp" }
 wordcraft-zotero = { path = "crates/zotero" }

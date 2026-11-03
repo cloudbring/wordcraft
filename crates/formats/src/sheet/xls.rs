@@ -10,7 +10,7 @@
 //! checked, and rows, columns, cells, strings and sheets are capped as for `.xlsx`.
 
 use std::collections::{BTreeMap, HashMap};
-use std::io::{Cursor, Read};
+use std::io::Cursor;
 
 use super::{
     DateKind, Grid, MAX_CELL_CHARS, MAX_CELLS, MAX_COLS, MAX_ENTRY, MAX_ROWS, MAX_SHARED, MAX_SHEETS, MAX_XFS, TextBudget, builtin_date, custom_date,
@@ -44,11 +44,13 @@ const TABLE: u16 = 0x0236;
 
 /// Whether `bytes` is a compound file holding an Excel workbook stream.
 pub fn is_xls(bytes: &[u8]) -> bool {
-    if !bytes.starts_with(&MAGIC) || wordcraft_doc::cfb_guard::check(bytes).is_err() {
+    if !bytes.starts_with(&MAGIC) {
         return false;
     }
-    let Ok(comp) = cfb::CompoundFile::open(Cursor::new(bytes)) else { return false };
-    comp.is_stream("/Workbook") || comp.is_stream("/Book")
+    let Ok(comp) = craft_cfb::Cfb::open(bytes) else { return false };
+    comp.entries().any(|entry| {
+        entry.kind() == craft_cfb::EntryKind::Stream && (entry.path().eq_ignore_ascii_case("Workbook") || entry.path().eq_ignore_ascii_case("Book"))
+    })
 }
 
 /// The worksheet names, in workbook order.
@@ -68,21 +70,19 @@ pub fn read_rows(bytes: &[u8], pick: super::Pick<'_>) -> Result<(Vec<String>, Ve
 }
 
 fn workbook_stream(bytes: &[u8]) -> Result<Vec<u8>, String> {
-    wordcraft_doc::cfb_guard::check(bytes).map_err(|e| format!("not a valid Excel 97–2003 workbook ({e})"))?;
-    let mut comp = cfb::CompoundFile::open(Cursor::new(bytes)).map_err(|e| format!("not a valid Excel 97–2003 workbook ({e})"))?;
-    if !comp.is_stream("/Workbook") {
-        if comp.is_stream("/Book") {
+    let comp = craft_cfb::Cfb::open(bytes)
+        .map_err(|e| format!("not a valid Excel 97–2003 workbook ({})", wordcraft_doc::cfb_guard::read_error(bytes, e)))?;
+    let workbook = comp.entries().find(|entry| entry.kind() == craft_cfb::EntryKind::Stream && entry.path().eq_ignore_ascii_case("Workbook"));
+    let Some(workbook) = workbook else {
+        if comp.entries().any(|entry| entry.kind() == craft_cfb::EntryKind::Stream && entry.path().eq_ignore_ascii_case("Book")) {
             return Err("this is an Excel 5.0/95 workbook, which isn't supported; save it as .xlsx (Excel Workbook) and select it again".into());
         }
         return Err("not an Excel workbook (no Workbook stream)".into());
-    }
-    let mut s = comp.open_stream("/Workbook").map_err(|e| format!("the Workbook stream can't be read ({e})"))?;
-    let mut v = Vec::new();
-    s.by_ref().take(MAX_ENTRY + 1).read_to_end(&mut v).map_err(|e| format!("the Workbook stream can't be read ({e})"))?;
-    if v.len() as u64 > MAX_ENTRY {
+    };
+    if workbook.size() > MAX_ENTRY {
         return Err("the workbook is too large".into());
     }
-    Ok(v)
+    comp.read_stream("Workbook").map_err(|e| format!("the Workbook stream can't be read ({e})"))
 }
 
 /// A record: its type, its data and where the next one starts.
@@ -710,6 +710,14 @@ mod tests {
         comp.create_stream("/Book").unwrap();
         let old = comp.into_inner().into_inner();
         assert!(sheet_names(&old).unwrap_err().contains("Excel 5.0/95"));
+        let empty = cfb::CompoundFile::create(Cursor::new(Vec::new())).unwrap().into_inner().into_inner();
+        assert_eq!(sheet_names(&empty).unwrap_err(), "not an Excel workbook (no Workbook stream)");
+        let mut oversized = book;
+        let directory = u32::from_le_bytes(oversized[48..52].try_into().unwrap()) as usize;
+        let sector_size = 1usize << u16::from_le_bytes(oversized[30..32].try_into().unwrap());
+        let size_at = (directory + 1) * sector_size + 128 + 120;
+        oversized[size_at..size_at + 8].copy_from_slice(&(MAX_ENTRY + 1).to_le_bytes());
+        assert_eq!(sheet_names(&oversized).unwrap_err(), "the workbook is too large");
     }
 
     #[test]

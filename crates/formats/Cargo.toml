@@ -16,6 +16,7 @@ image = { workspace = true }
 quick-xml = { workspace = true }
 zip = { workspace = true }
 cfb = { workspace = true }
+craft-cfb = { workspace = true }
 encoding_rs = { workspace = true }
 chardetng = { workspace = true }
 log = { workspace = true }

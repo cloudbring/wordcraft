@@ -152,6 +152,15 @@ fn cfb_without_word_stream() {
 fn word_stream_too_short() {
     let f = cfb_file(&[("WordDocument", &[0u8; 16])]);
     assert!(matches!(read(&f), Err(super::DocbinError::NotWord(_))));
+    let mut oversized = f;
+    let directory = u32::from_le_bytes(oversized[48..52].try_into().unwrap()) as usize;
+    let sector_size = 1usize << u16::from_le_bytes(oversized[30..32].try_into().unwrap());
+    let size_at = (directory + 1) * sector_size + 128 + 120;
+    oversized[size_at..size_at + 8].copy_from_slice(&(super::MAX_STREAM + 2).to_le_bytes());
+    assert!(
+        matches!(read(&oversized), Err(super::DocbinError::Limit(message)) if message == format!("WordDocument stream is {} bytes", super::MAX_STREAM + 1))
+    );
+    assert!(!super::is_encrypted(&oversized));
 }
 
 #[test]

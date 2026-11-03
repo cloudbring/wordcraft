@@ -24,8 +24,6 @@ mod sprm;
 mod stsh;
 mod table;
 
-use std::io::{Read, Seek};
-
 use wordcraft_doc::para::InlineObject;
 use wordcraft_doc::para::NoteKind;
 use wordcraft_doc::para::Paragraph;
@@ -173,14 +171,13 @@ pub enum DocbinError {
 /// Is this `.doc` password-protected (XOR obfuscation, RC4 or RC4 CryptoAPI)? False for
 /// anything that is not a readable Word 97-2003 file.
 pub fn is_encrypted(bytes: &[u8]) -> bool {
-    let Ok(mut comp) = open_container(bytes) else { return false };
-    stream(&mut comp, "WordDocument").is_some_and(|w| fib::peek_encryption(&w).is_some())
+    let Ok(comp) = open_container(bytes) else { return false };
+    stream(&comp, "WordDocument").ok().flatten().is_some_and(|w| fib::peek_encryption(&w).is_some())
 }
 
-/// Open the compound file around a `.doc`, after [`wordcraft_doc::cfb_guard::check`].
-fn open_container(bytes: &[u8]) -> Result<cfb::CompoundFile<std::io::Cursor<&[u8]>>, DocbinError> {
-    wordcraft_doc::cfb_guard::check(bytes).map_err(DocbinError::Container)?;
-    cfb::CompoundFile::open(std::io::Cursor::new(bytes)).map_err(|e| DocbinError::Container(e.to_string()))
+/// Open and validate the compound file around a `.doc`.
+fn open_container(bytes: &[u8]) -> Result<craft_cfb::Cfb<'_>, DocbinError> {
+    craft_cfb::Cfb::open(bytes).map_err(|e| DocbinError::Container(wordcraft_doc::cfb_guard::read_error(bytes, e)))
 }
 
 /// Read a `.doc` (Word 97-2003 binary) file into a [`Document`]. A password-protected file
@@ -193,25 +190,19 @@ pub fn read(bytes: &[u8]) -> Result<Document, DocbinError> {
 /// verifier ([`DocbinError::WrongPassword`] when it does not match) and then decrypted. The
 /// password is ignored for an unprotected file.
 pub fn read_with_password(bytes: &[u8], password: Option<&str>) -> Result<Document, DocbinError> {
-    let mut comp = open_container(bytes)?;
-    let mut word = stream(&mut comp, "WordDocument").ok_or_else(|| DocbinError::NotWord("no WordDocument stream".into()))?;
-    if word.len() as u64 > MAX_STREAM {
-        return Err(DocbinError::Limit(format!("WordDocument stream is {} bytes", word.len())));
-    }
+    let comp = open_container(bytes)?;
+    let mut word = stream(&comp, "WordDocument")?.ok_or_else(|| DocbinError::NotWord("no WordDocument stream".into()))?;
     let enc = fib::peek_encryption(&word);
     // The FIB names the Table stream (0Table or 1Table); fall back to whichever exists,
     // since files written by other writers sometimes carry the wrong bit.
     let which = if let Some(e) = enc { e.which_tbl_stm } else { fib::Fib::parse(&word)?.which_tbl_stm };
     let named = if which { "1Table" } else { "0Table" };
     let other = if which { "0Table" } else { "1Table" };
-    let mut table = stream(&mut comp, named).or_else(|| stream(&mut comp, other)).unwrap_or_default();
-    if table.len() as u64 > MAX_STREAM {
-        return Err(DocbinError::Limit(format!("Table stream is {} bytes", table.len())));
-    }
-    let mut data = stream(&mut comp, "Data").unwrap_or_default();
-    if data.len() as u64 > MAX_STREAM {
-        return Err(DocbinError::Limit(format!("Data stream is {} bytes", data.len())));
-    }
+    let mut table = match stream(&comp, named)? {
+        Some(table) => table,
+        None => stream(&comp, other)?.unwrap_or_default(),
+    };
+    let mut data = stream(&comp, "Data")?.unwrap_or_default();
     if let Some(e) = enc {
         // Verify the password first; only then is anything decrypted.
         let password = password.ok_or(DocbinError::PasswordRequired)?;
@@ -244,7 +235,7 @@ pub fn read_with_password(bytes: &[u8], password: Option<&str>) -> Result<Docume
     };
 
     let mut doc = Document::new();
-    if let Some(core) = metadata::read(&mut comp) {
+    if let Some(core) = metadata::read(&comp) {
         doc.core = core;
     }
     doc.body.clear();
@@ -938,13 +929,13 @@ fn char_props(grpprl: &[u8], fonts: &[String], base: &CharProps) -> CharProps {
 }
 
 /// Read a root-level stream fully, or `None` if it is absent.
-fn stream<F: Read + Seek>(comp: &mut cfb::CompoundFile<F>, name: &str) -> Option<Vec<u8>> {
-    let mut s = comp.open_stream(format!("/{name}")).ok()?;
-    let mut v = Vec::new();
-    // Read with a cap one byte above the limit so oversized streams are still caught by the
-    // caller instead of exhausting memory here.
-    s.by_ref().take(MAX_STREAM + 1).read_to_end(&mut v).ok()?;
-    Some(v)
+fn stream(comp: &craft_cfb::Cfb<'_>, name: &str) -> Result<Option<Vec<u8>>, DocbinError> {
+    let entry = comp.entries().find(|entry| entry.kind() == craft_cfb::EntryKind::Stream && entry.path().eq_ignore_ascii_case(name));
+    if let Some(entry) = entry.filter(|entry| entry.size() > MAX_STREAM) {
+        let label = if name == "0Table" || name == "1Table" { "Table" } else { name };
+        return Err(DocbinError::Limit(format!("{label} stream is {} bytes", entry.size().min(MAX_STREAM + 1))));
+    }
+    Ok(comp.read_stream(name).ok())
 }
 
 #[cfg(test)]

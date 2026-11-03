@@ -1,24 +1,19 @@
 //! Optional document text properties from [MS-OLEPS] §2.21 and §2.25.1.
 //! Broken metadata must not prevent opening the document or allocate from unchecked sizes.
 
-use std::io::{Read, Seek};
-
 use wordcraft_doc::CoreProps;
 
 const MAX_STREAM: u64 = 2 << 20;
 const MAX_STRING: usize = 64 << 10;
 const SUMMARY_FMTID: &[u8] = &[0xe0, 0x85, 0x9f, 0xf2, 0xf9, 0x4f, 0x68, 0x10, 0xab, 0x91, 0x08, 0x00, 0x2b, 0x27, 0xb3, 0xd9];
 
-pub(crate) fn read<F: Read + Seek>(comp: &mut cfb::CompoundFile<F>) -> Option<CoreProps> {
-    let stream = comp.open_stream("/\u{5}SummaryInformation").ok()?;
-    if stream.len() > MAX_STREAM {
+pub(crate) fn read(comp: &craft_cfb::Cfb<'_>) -> Option<CoreProps> {
+    let stream =
+        comp.entries().find(|entry| entry.kind() == craft_cfb::EntryKind::Stream && entry.path().eq_ignore_ascii_case("\u{5}SummaryInformation"))?;
+    if stream.size() > MAX_STREAM {
         return None;
     }
-    let mut bytes = Vec::new();
-    stream.take(MAX_STREAM + 1).read_to_end(&mut bytes).ok()?;
-    if bytes.len() as u64 > MAX_STREAM {
-        return None;
-    }
+    let bytes = comp.read_stream("\u{5}SummaryInformation").ok()?;
     parse(&bytes)
 }
 

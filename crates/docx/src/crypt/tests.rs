@@ -64,6 +64,8 @@ fn legacy_protection_hash_is_verified() {
 /// SHA-1 of the salt 00 01 … 0F and "7EEDCE64" as UTF-16LE, iterated 100,000 times.
 const KNOWN_LEGACY_SHA1: &str = "pEWelKoH6SVpvMmyPAJ8bHA/g/s=";
 
+use std::io::Read;
+
 use super::*;
 
 fn zip_package() -> Vec<u8> {
@@ -142,6 +144,9 @@ fn cfb_with(info: &[u8], package: &[u8]) -> Vec<u8> {
 #[test]
 fn hostile_encryption_info_errors_without_panicking() {
     let good = encrypt_with_spin_count(&zip_package(), "pw", 2).unwrap();
+    let reader = craft_cfb::Cfb::open(&good).unwrap();
+    assert!(matches!(stream(&reader, "/EncryptionInfo", 0), Err(DocxError::Limit(message)) if message == "EncryptionInfo is too large"));
+    assert!(matches!(stream(&reader, "/EncryptedPackage", 0), Err(DocxError::Limit(message)) if message == "EncryptedPackage is too large"));
     let mut comp = cfb::CompoundFile::open(Cursor::new(&good)).unwrap();
     let mut info = Vec::new();
     comp.open_stream("/EncryptionInfo").unwrap().read_to_end(&mut info).unwrap();

@@ -17,7 +17,7 @@
 //! spin count is bounded by the specification's maximum. Passwords and keys are wiped from memory
 //! when dropped ([`Zeroizing`]) and never logged.
 
-use std::io::{Cursor, Read, Write};
+use std::io::{Cursor, Write};
 
 use aes::cipher::{BlockCipherDecrypt, BlockCipherEncrypt, KeyInit};
 use base64::Engine as _;
@@ -74,11 +74,13 @@ const NS_PASSWORD: &str = "http://schemas.microsoft.com/office/2006/keyEncryptor
 /// Is this an encrypted Office package (a compound file with `EncryptionInfo` and
 /// `EncryptedPackage` streams) rather than a zip?
 pub fn is_encrypted(bytes: &[u8]) -> bool {
-    if bytes.get(..8) != Some(&CFB_MAGIC[..]) || wordcraft_doc::cfb_guard::check(bytes).is_err() {
+    if bytes.get(..8) != Some(&CFB_MAGIC[..]) {
         return false;
     }
-    match cfb::CompoundFile::open(Cursor::new(bytes)) {
-        Ok(comp) => comp.is_stream("/EncryptionInfo") && comp.is_stream("/EncryptedPackage"),
+    match craft_cfb::Cfb::open(bytes) {
+        Ok(comp) => ["EncryptionInfo", "EncryptedPackage"]
+            .iter()
+            .all(|name| comp.entries().any(|entry| entry.kind() == craft_cfb::EntryKind::Stream && entry.path().eq_ignore_ascii_case(name))),
         Err(_) => false,
     }
 }
@@ -87,10 +89,10 @@ pub fn is_encrypted(bytes: &[u8]) -> bool {
 /// [`DocxError::PasswordRequired`] once it knows the file is one it can decrypt; a password that
 /// doesn't fit gives [`DocxError::WrongPassword`].
 pub fn decrypt(bytes: &[u8], password: Option<&str>) -> Result<Vec<u8>, DocxError> {
-    wordcraft_doc::cfb_guard::check(bytes).map_err(|e| bad(format!("not a readable compound file ({e})")))?;
-    let mut comp = cfb::CompoundFile::open(Cursor::new(bytes)).map_err(|e| bad(format!("not a readable compound file ({e})")))?;
-    let info = stream(&mut comp, "/EncryptionInfo", MAX_INFO)?;
-    let package = stream(&mut comp, "/EncryptedPackage", bytes.len() as u64)?;
+    let comp =
+        craft_cfb::Cfb::open(bytes).map_err(|e| bad(format!("not a readable compound file ({})", wordcraft_doc::cfb_guard::read_error(bytes, e))))?;
+    let info = stream(&comp, "/EncryptionInfo", MAX_INFO)?;
+    let package = stream(&comp, "/EncryptedPackage", bytes.len() as u64)?;
     if matches!(info.get(..4), Some([2..=4, 0, 2, 0])) {
         return decrypt_standard(&info, &package, password);
     }
@@ -547,14 +549,12 @@ fn bad(msg: impl Into<String>) -> DocxError {
 }
 
 /// A root-level stream, at most `cap` bytes.
-fn stream<F: Read + std::io::Seek>(comp: &mut cfb::CompoundFile<F>, path: &str, cap: u64) -> Result<Vec<u8>, DocxError> {
-    let s = comp.open_stream(path).map_err(|e| bad(format!("can't read {} ({e})", path.trim_start_matches('/'))))?;
-    let mut v = Vec::new();
-    s.take(cap.saturating_add(1)).read_to_end(&mut v).map_err(|e| bad(format!("can't read {} ({e})", path.trim_start_matches('/'))))?;
-    if v.len() as u64 > cap {
-        return Err(DocxError::Limit(format!("{} is too large", path.trim_start_matches('/'))));
+fn stream(comp: &craft_cfb::Cfb<'_>, path: &str, cap: u64) -> Result<Vec<u8>, DocxError> {
+    let name = path.trim_start_matches('/');
+    if comp.entries().any(|entry| entry.kind() == craft_cfb::EntryKind::Stream && entry.path().eq_ignore_ascii_case(name) && entry.size() > cap) {
+        return Err(DocxError::Limit(format!("{name} is too large")));
     }
-    Ok(v)
+    comp.read_stream(name).map_err(|e| bad(format!("can't read {name} ({e})")))
 }
 
 /// The hash algorithms agile encryption names that WordCraft supports.

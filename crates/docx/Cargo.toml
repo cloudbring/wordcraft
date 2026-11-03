@@ -18,6 +18,7 @@ log = { workspace = true }
 chrono = { workspace = true }
 unicode-bidi = { workspace = true }
 cfb = { workspace = true }
+craft-cfb = { workspace = true }
 aes = { workspace = true }
 sha1 = { workspace = true }
 sha2 = { workspace = true }

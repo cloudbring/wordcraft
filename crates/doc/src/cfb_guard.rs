@@ -1,5 +1,11 @@
 //! A bytes-only check of an OLE compound file ([MS-CFB]) before the `cfb` crate opens it
-//! (#3642). Every reader of `.doc`, `.xls` and encrypted Office packages calls [`check`] first.
+//! (#3642). Readers use `craft-cfb` for validation; this guard remains for regression tests
+//! and compatibility diagnostics after a compound file has already been rejected.
+
+/// Preserve legacy hardening diagnostics after a compound-file reader rejects the bytes.
+pub fn read_error(bytes: &[u8], error: impl std::fmt::Display) -> String {
+    check(bytes).err().unwrap_or_else(|| error.to_string())
+}
 
 /// Check a compound file's FAT layout before `cfb` reads it ([MS-CFB] §2.2 header, §2.5
 /// DIFAT). `cfb` appends a whole sector of FAT entries for every FAT sector the DIFAT lists and

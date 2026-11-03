@@ -1020,6 +1020,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "craft-cfb"
+version = "0.1.0"
+source = "git+https://github.com/cloudbring/craft-libs?branch=algo%2Fintegration#099c8fdd7ae3cceb75ada20c03f429a8434d22d9"
+
+[[package]]
 name = "craft-font-catalog"
 version = "0.1.0"
 source = "git+https://github.com/storytold/craft-libs?rev=762a06a4c6b48b522b7d4de84a87917ef90265e6#762a06a4c6b48b522b7d4de84a87917ef90265e6"
@@ -6822,6 +6827,7 @@ version = "0.15.0"
 dependencies = [
  "cfb",
  "chrono",
+ "craft-cfb",
  "image",
  "log",
  "miniz_oxide 0.9.1",
@@ -6841,6 +6847,7 @@ dependencies = [
  "base64 0.23.1",
  "cfb",
  "chrono",
+ "craft-cfb",
  "getrandom 0.3.4",
  "hmac",
  "image",
@@ -6911,6 +6918,7 @@ dependencies = [
  "cfb",
  "chardetng",
  "chrono",
+ "craft-cfb",
  "encoding_rs",
  "image",
  "js-sys",
