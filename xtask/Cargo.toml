@@ -10,3 +10,7 @@ workspace = true
 
 [dependencies]
 serde_json = { workspace = true }
+# Pinned, sha256-verified test corpora (the PngSuite fetch used to be an unpinned http:// curl).
+# NOTE: this rev is on cloudbring/craft-libs branch algo/180-corpus-finish and must be pushed
+# (and, ideally, merged into storytold/craft-libs) before this resolves for anyone else.
+craft-corpus = { git = "https://github.com/cloudbring/craft-libs", rev = "a780d3387e07c8743e7b18a6b4a328b69712818e", version = "=0.1.0" }
