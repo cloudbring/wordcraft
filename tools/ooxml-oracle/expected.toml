@@ -1,0 +1,27 @@
+# Intended old-vs-new differences of the craft-ooxml reader swap (#122), over the Office corpus.
+# Each entry names the files it covers; an entry that matches nothing is reported as stale.
+# Root causes and counts: docs/verification/ooxml-oracle.md.
+
+# All three differ only in the warnings the import logs; the Document, every serde field, its Debug
+# text and the saved package are identical to the pre-swap reader on these files.
+
+[[expected]]
+id = "warn-unreadable-entry-wording"
+glob = "office-libreoffice/sw/qa/core/data/ooxml/fail/LIBREOFFICE-DBDAZAEC.docx"
+metric = "warnings"
+reason = """Fuzz-corrupted package (bad CRCs / corrupt deflate streams). The reader skips the same 9 unreadable entries as before, in the same order; only the wording of the per-entry warning changed ('zip entry X unreadable: E' became 'X: unreadable entry skipped: ZIP I/O: E', craft-ooxml's text). Also the 'part ... of an embedded object is missing' warning names word/activex/activeX5.bin instead of word/activeX/activeX5.bin for two parts: the file's local-header names (word/activex/...) disagree in case with its central directory (word/activeX/...), and the new reader spells the part by the rels path it resolved. The part is missing on both sides."""
+evidence = "cloudbring/artcraft-algorithms#184, wordcraft #122; docs/verification/ooxml-oracle.md"
+
+[[expected]]
+id = "warn-unreadable-entry-wording-and-empty-content-types"
+glob = "office-libreoffice/sw/qa/extras/uiwriter/data/ofz18563.docx"
+metric = "warnings"
+reason = """Fuzz-corrupted package whose [Content_Types].xml entry is itself a corrupt deflate stream. Same 7 unreadable entries skipped as before (wording changed, as above). craft-ooxml additionally warns 'missing [Content_Types].xml: using empty content types' where the old reader fell back silently; the fallback itself is the same and the model and saved package are identical."""
+evidence = "cloudbring/artcraft-algorithms#184, wordcraft #122; docs/verification/ooxml-oracle.md"
+
+[[expected]]
+id = "warn-duplicate-relationship-id"
+glob = "office-libreoffice/sw/qa/core/data/ooxml/pass/tdf93284.docx"
+metric = "warnings"
+reason = """word/_rels/document.xml.rels repeats the ids rId5 and rId6. The old reader kept the first definition silently; craft-ooxml keeps the first as well and now logs 'duplicate relationship id rId5/rId6 skipped'. Model and saved package are identical, so the only change is two extra warnings."""
+evidence = "cloudbring/artcraft-algorithms#184, wordcraft #122; docs/verification/ooxml-oracle.md"

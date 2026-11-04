@@ -1,0 +1,21 @@
+[package]
+name = "ooxml-oracle"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "Old-vs-new differential for the craft-ooxml reader swap (#122) over a real-file corpus; see docs/verification/ooxml-oracle.md"
+
+# Its own workspace: the pre-swap `wordcraft-docx` (a git dependency of the same name as the
+# workspace crate) would make `-p wordcraft-docx` ambiguous for every command in the main
+# workspace if it were a dev-dependency there.
+[workspace]
+
+[dependencies]
+wordcraft-docx = { path = "../../crates/docx" }
+zip = { version = "3", default-features = false, features = ["deflate"] }
+serde_json = "1"
+log = "0.4"
+craft-oracle = { git = "https://github.com/cloudbring/craft-libs", rev = "7d46713" }
+craft-compare = { git = "https://github.com/cloudbring/craft-libs", rev = "7d46713" }
+# The reader and writer as of the swap's merge-base, renamed so both revisions link together.
+docx_old = { package = "wordcraft-docx", git = "https://github.com/storytold/wordcraft", rev = "bff0d1d9250a34e74d38f53bfe17195edb2da66b" }
