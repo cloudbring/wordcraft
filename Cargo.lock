@@ -1012,6 +1012,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "craft-archive"
+version = "0.1.0"
+source = "git+https://github.com/cloudbring/craft-libs?rev=4d7f516#4d7f516d23947665a78d91e081cd6da982ae8b53"
+dependencies = [
+ "craft-hash",
+ "flate2",
+ "thiserror 2.0.21",
+ "zip 9.1.0",
+]
+
+[[package]]
 name = "craft-atomic"
 version = "0.1.0"
 source = "git+https://github.com/storytold/craft-libs?rev=762a06a4c6b48b522b7d4de84a87917ef90265e6#762a06a4c6b48b522b7d4de84a87917ef90265e6"
@@ -1056,6 +1067,14 @@ version = "0.1.0"
 source = "git+https://github.com/storytold/craft-libs?rev=92d392cff132eaf53e13afff77f38b5c11b73aa0#92d392cff132eaf53e13afff77f38b5c11b73aa0"
 
 [[package]]
+name = "craft-hash"
+version = "0.1.0"
+source = "git+https://github.com/cloudbring/craft-libs?rev=4d7f516#4d7f516d23947665a78d91e081cd6da982ae8b53"
+dependencies = [
+ "sha2 0.10.9",
+]
+
+[[package]]
 name = "craft-i18n"
 version = "0.1.0"
 source = "git+https://github.com/storytold/craft-libs?rev=92d392cff132eaf53e13afff77f38b5c11b73aa0#92d392cff132eaf53e13afff77f38b5c11b73aa0"
@@ -1076,6 +1095,17 @@ dependencies = [
  "unicode-bidi",
  "windows-registry",
  "writeable",
+]
+
+[[package]]
+name = "craft-ooxml"
+version = "0.1.0"
+source = "git+https://github.com/cloudbring/craft-libs?rev=4d7f516#4d7f516d23947665a78d91e081cd6da982ae8b53"
+dependencies = [
+ "craft-archive",
+ "quick-xml 0.41.0",
+ "thiserror 2.0.21",
+ "zip 9.1.0",
 ]
 
 [[package]]
@@ -6874,6 +6904,8 @@ dependencies = [
  "base64 0.23.1",
  "cfb",
  "chrono",
+ "craft-archive",
+ "craft-ooxml",
  "getrandom 0.3.4",
  "hmac",
  "image",

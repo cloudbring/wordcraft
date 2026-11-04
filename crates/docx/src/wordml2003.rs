@@ -152,7 +152,7 @@ pub(crate) fn convert(bytes: &[u8]) -> Result<Package, DocxError> {
     }
     w.close("Types");
     c.files.insert("[Content_Types].xml".into(), w.into_bytes());
-    Ok(Package::from_parts(c.files))
+    Package::from_parts(c.files)
 }
 
 impl Conv {

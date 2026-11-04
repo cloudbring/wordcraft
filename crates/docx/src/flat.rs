@@ -248,7 +248,7 @@ pub(crate) fn unpack(bytes: &[u8]) -> Result<Package, DocxError> {
         w.close("Types");
         files.insert("[Content_Types].xml".into(), w.into_bytes());
     }
-    Ok(Package::from_parts(files))
+    Package::from_parts(files)
 }
 
 /// End of a `pkg:part`: store its binary data (inline XML was stored when it ended).
@@ -391,7 +391,7 @@ pub fn write(doc: &Document) -> Result<Vec<u8>, DocxError> {
     let types = parts
         .iter()
         .find(|(n, _)| n == "[Content_Types].xml")
-        .map(|(n, b)| ContentTypes::read(&Package::from_parts(BTreeMap::from([(n.clone(), b.clone())]))))
+        .and_then(|(n, b)| Package::from_parts(BTreeMap::from([(n.clone(), b.clone())])).ok().map(|p| ContentTypes::read(&p)))
         .unwrap_or_default();
     let mut s = String::from("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n<?mso-application progid=\"Word.Document\"?>\n");
     s.push_str(&format!("<pkg:package xmlns:pkg=\"{PKG_NS}\">"));

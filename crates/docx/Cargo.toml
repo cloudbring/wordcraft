@@ -12,6 +12,8 @@ workspace = true
 wordcraft-doc = { workspace = true }
 wordcraft-geom = { workspace = true }
 quick-xml = { workspace = true }
+craft-ooxml = { git = "https://github.com/cloudbring/craft-libs", rev = "4d7f516" }
+craft-archive = { git = "https://github.com/cloudbring/craft-libs", rev = "4d7f516" }
 zip = { workspace = true }
 thiserror = { workspace = true }
 log = { workspace = true }

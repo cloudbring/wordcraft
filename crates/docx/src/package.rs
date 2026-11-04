@@ -1,9 +1,12 @@
 //! OPC package access: bounded zip reading, relationships, part names.
 
-use std::collections::hash_map::Entry;
-use std::collections::{BTreeMap, HashMap, HashSet};
-use std::io::{Cursor, Read, Write};
+use std::collections::BTreeMap;
+use std::io::{Cursor, Write};
 use std::sync::Arc;
+
+use craft_archive::{ZipError, ZipLimits};
+use craft_ooxml::dom::ReadMode;
+use craft_ooxml::opc;
 
 use crate::DocxError;
 use crate::xml::{self, El};
@@ -198,13 +201,28 @@ pub fn rel_is(t: &str, full: &str) -> bool {
     t == full || tail(t) == tail(full)
 }
 
-/// The decompressed parts of a package (bounded). Shared, so a part the document keeps as it is (a
-/// picture, an embedded object) is handed over rather than copied.
+/// The decompressed parts of a package (bounded), read by the shared `craft-ooxml` OPC reader in
+/// its lenient mode. Part bytes are shared, so a part the document keeps as it is (a picture, an
+/// embedded object) is handed over rather than copied.
 pub struct Package {
-    files: BTreeMap<String, Arc<Vec<u8>>>,
-    /// Lowercased part name → its stored spelling (the first in name order): part names are
-    /// case-insensitive (ECMA-376 Part 2 §6.2.2.3), so every spelling is one part.
-    lower: HashMap<String, String>,
+    inner: opc::Package,
+}
+
+fn limits(max_part: u64, max_total: u64) -> opc::OpcLimits {
+    opc::OpcLimits {
+        zip: ZipLimits { max_entries: MAX_ENTRIES, max_entry_bytes: max_part, max_total_bytes: max_total },
+        max_archive_bytes: usize::MAX,
+        ..opc::OpcLimits::default()
+    }
+}
+
+fn opc_error(e: opc::OpcError) -> DocxError {
+    match e {
+        opc::OpcError::Zip(ZipError::EntryCount | ZipError::EntryLimit | ZipError::TotalLimit) | opc::OpcError::Limit(_) => {
+            DocxError::Limit(e.to_string())
+        }
+        e => DocxError::Zip(e.to_string()),
+    }
 }
 
 impl Package {
@@ -215,100 +233,51 @@ impl Package {
     pub fn open_limited(bytes: &[u8], max_part: u64, max_total: u64) -> Result<Package, DocxError> {
         // Before `zip` parses every entry the end record declares (#3660).
         wordcraft_doc::zip_guard::check(bytes, MAX_ENTRIES as u64).map_err(DocxError::Limit)?;
-        let mut zip = zip::ZipArchive::new(Cursor::new(bytes)).map_err(|e| DocxError::Zip(e.to_string()))?;
-        if zip.len() > MAX_ENTRIES {
-            return Err(DocxError::Limit(format!("{} zip entries", zip.len())));
+        let inner = opc::Package::open_with(bytes, &limits(max_part, max_total), &opc::Tolerance::lenient()).map_err(opc_error)?;
+        Ok(Package::wrap(inner))
+    }
+
+    fn wrap(inner: opc::Package) -> Package {
+        // One note for all the merged spellings (#3704); the rest as the reader words them.
+        let mut dropped = 0;
+        for w in inner.warnings() {
+            match w.strip_prefix("case-duplicate parts ").and_then(|w| w.split_once(" merged into ")) {
+                Some((spellings, _)) => dropped += spellings.split(", ").count().saturating_sub(1),
+                None => log::warn!("docx: {w}"),
+            }
         }
-        let mut files = BTreeMap::new();
-        let mut total: u64 = 0;
-        for i in 0..zip.len() {
-            let mut f = match zip.by_index(i) {
-                Ok(f) => f,
-                Err(e) => {
-                    log::warn!("docx: skipping unreadable zip entry {i}: {e}");
-                    continue;
-                }
-            };
-            if f.is_dir() {
-                continue;
-            }
-            let name = f.name().trim_start_matches('/').to_string();
-            if f.size() > max_part {
-                return Err(DocxError::Limit(format!("part {name} declares {} bytes", f.size())));
-            }
-            let room = max_part.min(max_total.saturating_sub(total));
-            let mut buf = Vec::with_capacity(f.size().min(16 * 1024 * 1024) as usize);
-            let read = (&mut f).take(room + 1).read_to_end(&mut buf);
-            // Charged whether or not the read succeeds: an entry inflates in full before its CRC
-            // is checked, so failed entries would otherwise inflate without limit (#3723).
-            total = total.saturating_add(buf.len() as u64);
-            if buf.len() as u64 > room {
-                return Err(DocxError::Limit(format!("part {name} decompresses past the size limit")));
-            }
-            if let Err(e) = read {
-                // A corrupt entry: keep going unless it's a part we can't do without.
-                log::warn!("docx: zip entry {name} unreadable: {e}");
-                continue;
-            }
-            files.insert(name, Arc::new(buf));
+        if dropped > 0 {
+            log::warn!("docx: {dropped} zip entries are other spellings of parts already read; they are left out");
         }
-        Ok(Package::new(files))
+        Package { inner }
     }
 
     /// The bytes of all its parts.
     pub fn size(&self) -> u64 {
-        self.files.values().map(|f| f.len() as u64).sum()
+        self.inner.part_names().filter_map(|n| self.inner.part(n)).map(|b| b.len() as u64).sum()
     }
 
     /// A package from parts already in memory (a Flat OPC file, a converted document), by part
     /// name without the leading `/`.
-    pub fn from_parts(files: BTreeMap<String, Vec<u8>>) -> Package {
-        Package::new(files.into_iter().map(|(name, bytes)| (name, Arc::new(bytes))).collect())
-    }
-
-    fn new(mut files: BTreeMap<String, Arc<Vec<u8>>>) -> Package {
-        let mut lower: HashMap<String, String> = HashMap::new();
-        let mut collides = false;
-        for name in files.keys() {
-            match lower.entry(name.to_ascii_lowercase()) {
-                Entry::Occupied(_) => collides = true,
-                Entry::Vacant(v) => {
-                    v.insert(name.clone());
-                }
-            }
-        }
-        if !collides {
-            return Package { files, lower };
-        }
-        // Entries whose names differ only in case are one part, so every spelling of the name
-        // reaches the same stored entry (#3704). The spelling kept is the one a relationship
-        // names, so the part the document points at is the one read; the first in byte order only
-        // when no relationship names any of them.
-        let named = rel_targets(&files);
-        for name in files.keys().rev().filter(|n| named.contains(n.as_str())) {
-            lower.insert(name.to_ascii_lowercase(), name.clone());
-        }
-        let before = files.len();
-        files.retain(|name, _| lower.get(&name.to_ascii_lowercase()) == Some(name));
-        let dropped = before.saturating_sub(files.len());
-        log::warn!("docx: {dropped} zip entries are other spellings of parts already read; they are left out");
-        Package { files, lower }
+    pub fn from_parts(files: BTreeMap<String, Vec<u8>>) -> Result<Package, DocxError> {
+        let inner = opc::Package::from_parts(files, &limits(MAX_PART, MAX_TOTAL), ReadMode::Lenient).map_err(opc_error)?;
+        Ok(Package::wrap(inner))
     }
 
     /// The stored spelling of part `name` (leading `/` ignored; case-insensitive).
     pub fn canonical(&self, name: &str) -> Option<&str> {
-        self.lower.get(&name.trim_start_matches('/').to_ascii_lowercase()).map(String::as_str)
+        self.inner.canonical(name)
     }
 
-    /// Part bytes by name (leading `/` ignored; case-insensitive fallback).
+    /// Part bytes by name (leading `/` ignored; case-insensitive).
     pub fn get(&self, name: &str) -> Option<&[u8]> {
-        self.get_shared(name).map(|v| v.as_slice())
+        self.inner.part(name)
     }
 
     /// [`Package::get`], as the shared bytes themselves: for a part the document keeps whole, which
     /// then costs no copy (a picture document's pictures used to be held twice while it opened).
-    pub fn get_shared(&self, name: &str) -> Option<&Arc<Vec<u8>>> {
-        self.canonical(name).and_then(|n| self.files.get(n))
+    pub fn get_shared(&self, name: &str) -> Option<Arc<Vec<u8>>> {
+        self.inner.part_shared(name)
     }
 
     /// [`Package::xml`] for the main document part: malformed XML is an error, not a truncated read.
@@ -326,70 +295,34 @@ impl Package {
         }
     }
 
-    /// Relationships of `part` (from `dir/_rels/name.rels`).
+    /// Relationships of `part`. Internal targets name the part as stored, so a part reached under
+    /// several spellings is kept, cached and written once (#3704).
     pub fn rels(&self, part: &str) -> Rels {
-        let (dir, file) = split_dir(part);
-        let path = if dir.is_empty() { format!("_rels/{file}.rels") } else { format!("{dir}/_rels/{file}.rels") };
-        let mut rels = Rels::default();
-        let root = match self.xml(&path) {
-            Ok(Some(root)) => root,
-            Ok(None) => return rels,
-            Err(e) => {
-                log::warn!("docx: ignoring unreadable relationships {path}: {e}");
-                return rels;
-            }
-        };
-        for r in root.els().filter(|e| e.local() == "Relationship") {
-            let (Some(id), Some(target)) = (r.attr("Id"), r.attr("Target")) else { continue };
-            let external = r.attr("TargetMode").is_some_and(|m| m.eq_ignore_ascii_case("External"));
-            // Internal targets name the part as stored, so a part reached under several spellings
-            // is kept, cached and written once (#3704).
-            let resolved = if external {
-                target.to_string()
-            } else {
-                let path = resolve(dir, target);
-                self.canonical(&path).map_or(path, str::to_string)
-            };
-            rels.list.push(Rel { id: id.to_string(), kind: r.attr("Type").unwrap_or("").to_string(), target: resolved, external });
-        }
-        rels
+        let list = self.inner.rels_of(part).map_or_else(Vec::new, |r| {
+            r.iter()
+                .map(|r| {
+                    let external = r.mode == opc::TargetMode::External;
+                    let target = if external { r.target.clone() } else { self.canonical(&r.target).map_or_else(|| r.target.clone(), str::to_string) };
+                    Rel { id: r.id.clone(), kind: r.kind.clone(), target, external }
+                })
+                .collect()
+        });
+        Rels { list }
     }
 }
 
 /// `[Content_Types].xml`: Override by part name, then Default by extension (both case-insensitive).
 #[derive(Default)]
-pub struct ContentTypes {
-    overrides: HashMap<String, String>,
-    defaults: HashMap<String, String>,
-}
+pub struct ContentTypes(opc::ContentTypes);
 
 impl ContentTypes {
     pub fn read(pkg: &Package) -> ContentTypes {
-        let mut ct = ContentTypes::default();
-        let root = match pkg.xml("[Content_Types].xml") {
-            Ok(Some(root)) => root,
-            Ok(None) => return ct,
-            Err(e) => {
-                log::warn!("docx: ignoring unreadable [Content_Types].xml: {e}");
-                return ct;
-            }
-        };
-        for e in root.els() {
-            let (Some(key), Some(t)) = (e.attr("PartName").or_else(|| e.attr("Extension")), e.attr("ContentType")) else { continue };
-            let map = if e.local() == "Override" { &mut ct.overrides } else { &mut ct.defaults };
-            map.entry(key.trim_start_matches('/').to_ascii_lowercase()).or_insert_with(|| t.to_string());
-        }
-        ct
+        ContentTypes(pkg.inner.content_types.clone())
     }
 
     /// Content type of `part` (a package path without the leading `/`).
     pub fn of(&self, part: &str) -> Option<&str> {
-        let part = part.trim_start_matches('/').to_ascii_lowercase();
-        if let Some(t) = self.overrides.get(&part) {
-            return Some(t);
-        }
-        let ext = part.rsplit_once('.').map(|(_, e)| e)?;
-        self.defaults.get(ext).map(String::as_str)
+        self.0.of(part)
     }
 }
 
@@ -414,49 +347,6 @@ impl Rels {
     pub fn by_type(&self, full: &str) -> Option<&Rel> {
         self.list.iter().find(|r| rel_is(&r.kind, full))
     }
-}
-
-fn split_dir(part: &str) -> (&str, &str) {
-    let p = part.trim_start_matches('/');
-    match p.rfind('/') {
-        Some(i) => (p.get(..i).unwrap_or(""), p.get(i + 1..).unwrap_or(p)),
-        None => ("", p),
-    }
-}
-
-/// Every internal part name the relationship parts in `files` target, spelled as they spell it.
-fn rel_targets(files: &BTreeMap<String, Arc<Vec<u8>>>) -> HashSet<String> {
-    let mut named = HashSet::new();
-    for (name, bytes) in files {
-        // `dir/_rels/file.rels` relates `dir/file`, so its targets resolve against `dir`.
-        let lower = name.to_ascii_lowercase();
-        let Some(at) = lower.rfind("_rels/").filter(|_| lower.ends_with(".rels")) else { continue };
-        let dir = name.get(..at).unwrap_or("").trim_end_matches('/');
-        let Ok(root) = xml::parse(bytes) else { continue };
-        for r in root.els().filter(|e| e.local() == "Relationship") {
-            let external = r.attr("TargetMode").is_some_and(|m| m.eq_ignore_ascii_case("External"));
-            if let (Some(target), false) = (r.attr("Target"), external) {
-                named.insert(resolve(dir, target));
-            }
-        }
-    }
-    named
-}
-
-/// Resolve a relative target against a source directory into a package path.
-pub fn resolve(dir: &str, target: &str) -> String {
-    let target = target.split('#').next().unwrap_or(target);
-    let mut parts: Vec<&str> = if target.starts_with('/') { Vec::new() } else { dir.split('/').filter(|s| !s.is_empty()).collect() };
-    for seg in target.split('/') {
-        match seg {
-            "" | "." => {}
-            ".." => {
-                parts.pop();
-            }
-            s => parts.push(s),
-        }
-    }
-    parts.join("/")
 }
 
 /// The relative reference from part `from` to part `to` (both package paths), as a
@@ -493,6 +383,7 @@ pub fn zip_entries(entries: &[(String, Vec<u8>)]) -> Result<Vec<u8>, DocxError> 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use craft_ooxml::opc::resolve_target_clamped as resolve;
 
     fn zip_of(entries: &[(&str, Vec<u8>)]) -> Vec<u8> {
         let e: Vec<(String, Vec<u8>)> = entries.iter().map(|(n, b)| (n.to_string(), b.clone())).collect();
@@ -507,7 +398,7 @@ mod tests {
             assert_eq!(p.canonical(spelling), Some("word/media/Image.png"), "{spelling}");
             assert_eq!(p.get(spelling), Some(&b"upper"[..]), "{spelling}");
         }
-        assert_eq!(p.files.len(), 1);
+        assert_eq!(p.inner.part_names().count(), 1);
     }
 
     #[test]
@@ -526,7 +417,7 @@ mod tests {
         assert_eq!(p.canonical("word/media/IMAGE.png"), Some("word/media/image.png"));
         assert_eq!(p.get("word/media/Image.png"), Some(&b"lower"[..]));
         assert_eq!(p.get("word/media/OTHER.PNG"), Some(&b"first"[..]), "no relationship names it: first in byte order");
-        assert_eq!(p.files.len(), 3);
+        assert_eq!(p.inner.part_names().count(), 3);
         let folded: Vec<_> = warned.iter().filter(|w| w.contains("other spellings")).collect();
         assert_eq!(folded.len(), 1, "one warning for the package: {warned:?}");
         assert!(folded.iter().all(|w| w.contains("2 zip entries")), "{folded:?}");
@@ -612,7 +503,7 @@ mod tests {
         let pkg = Package::open(&z).unwrap();
         let doc = crate::read::read_opened(&pkg, None).unwrap();
         let held = doc.media.values().next().expect("the picture is read");
-        assert!(Arc::ptr_eq(held, pkg.get_shared("word/media/pic.png").unwrap()), "the same bytes, not a copy");
+        assert!(Arc::ptr_eq(held, &pkg.get_shared("word/media/pic.png").unwrap()), "the same bytes, not a copy");
         assert_eq!(pkg.get("/WORD/media/PIC.png"), Some(&b"\x89PNG picture bytes"[..]), "lookups are unchanged");
     }
 
