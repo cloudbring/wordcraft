@@ -1318,3 +1318,62 @@ fn a_line_runs_from_top_left_to_bottom_right() {
     let p = shape_path(ShapeKind::Line, kurbo::Rect::new(10.0, 20.0, 30.0, 60.0), None);
     assert_eq!(p.elements(), &[kurbo::PathEl::MoveTo((10.0, 20.0).into()), kurbo::PathEl::LineTo((30.0, 60.0).into())]);
 }
+
+/// One EMF record: type, size, payload padded to 4 bytes.
+fn emf_record(typ: u32, payload: &[u8]) -> Vec<u8> {
+    let mut p = payload.to_vec();
+    p.resize(p.len().next_multiple_of(4), 0);
+    let mut v = typ.to_le_bytes().to_vec();
+    v.extend(((8 + p.len()) as u32).to_le_bytes());
+    v.extend(p);
+    v
+}
+
+/// A synthetic EMF drawing "A" in a font of the given LOGFONT weight.
+fn emf_with_text_weight(weight: u16) -> Vec<u8> {
+    let le = |v: i32| v.to_le_bytes();
+    // EMR_EXTCREATEFONTINDIRECTW, slot 1: LogFont height, width, escapement, orientation, weight.
+    let mut font = [1i32, -24, 0, 0, 0, i32::from(weight)].iter().flat_map(|v| le(*v)).collect::<Vec<u8>>();
+    font.extend([0, 0, 0, 0, 0, 0, 0, 0]);
+    let mut face: Vec<u8> = "Arial".encode_utf16().flat_map(u16::to_le_bytes).collect();
+    face.resize(64, 0);
+    font.extend(face);
+    // EMR_EXTTEXTOUTW at (10, 40): graphics mode, scales, reference, count, string offset, options,
+    // rectangle, dx offset, then the string "A" (record offsets, so the string sits at 76).
+    let mut text = [1i32, 0, 0, 10, 40, 1, 76, 0, 0, 0, 0, 0, 0].iter().flat_map(|v| le(*v)).collect::<Vec<u8>>();
+    text.extend(b"A\0\0\0");
+    let records = [emf_record(82, &font), emf_record(37, &le(1)), emf_record(84, &[vec![0u8; 16], text].concat())];
+    let body: Vec<u8> = records.concat();
+    let eof = emf_record(14, &[0; 12]);
+    let mut h = vec![0u8; 88];
+    h[0..4].copy_from_slice(&1u32.to_le_bytes());
+    h[4..8].copy_from_slice(&88u32.to_le_bytes());
+    h[8..24].copy_from_slice(&[0, 0, 0, 0, 0, 0, 0, 0, 200, 0, 0, 0, 100, 0, 0, 0]);
+    h[24..40].copy_from_slice(&[0, 0, 0, 0, 0, 0, 0, 0, 0x88, 0x13, 0, 0, 0xC4, 0x09, 0, 0]);
+    h[40..44].copy_from_slice(&0x464D_4520u32.to_le_bytes());
+    h[44..48].copy_from_slice(&0x0001_0000u32.to_le_bytes());
+    h[48..52].copy_from_slice(&((88 + body.len() + eof.len()) as u32).to_le_bytes());
+    h[52..56].copy_from_slice(&4u32.to_le_bytes());
+    h[56..58].copy_from_slice(&1u16.to_le_bytes());
+    h[72..76].copy_from_slice(&1000i32.to_le_bytes());
+    h[76..80].copy_from_slice(&500i32.to_le_bytes());
+    h[80..84].copy_from_slice(&250i32.to_le_bytes());
+    h[84..88].copy_from_slice(&125i32.to_le_bytes());
+    [h, body, eof].concat()
+}
+
+/// #204: the pre-swap metafile reader called weight 600 (semibold) bold; the renderer and PDF
+/// path must keep doing so, and regular weights must stay regular.
+#[test]
+fn metafile_semibold_text_counts_as_bold() {
+    let weights = |w: u16| {
+        let pic = craft_metafile::parse(&emf_with_text_weight(w)).expect("synthetic EMF parses");
+        pic.items.iter().filter_map(|i| if let craft_metafile::Item::Text(t) = i { Some(t.font.weight) } else { None }).collect::<Vec<_>>()
+    };
+    assert_eq!(weights(600), [600], "craft-metafile exposes the numeric weight");
+    assert!(wordcraft_fonts::word::metafile_is_bold(600));
+    assert!(wordcraft_fonts::word::metafile_is_bold(699));
+    assert!(wordcraft_fonts::word::metafile_is_bold(700));
+    assert!(!wordcraft_fonts::word::metafile_is_bold(599));
+    assert!(!wordcraft_fonts::word::metafile_is_bold(400));
+}

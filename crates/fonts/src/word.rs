@@ -380,6 +380,12 @@ const FAMILY_CACHE_MAX: usize = 4096;
 /// Family names longer than this (bytes) are resolved but never remembered.
 const FAMILY_KEY_MAX: usize = 256;
 
+/// Whether a metafile LOGFONT weight (`FW_*`, 100-900) counts as bold: from `FW_SEMIBOLD` (600), as
+/// the pre-swap reader did.
+pub fn metafile_is_bold(weight: u16) -> bool {
+    weight >= 600
+}
+
 /// Resolve `family` with bold/italic to a face (memoised until user fonts are added or removed,
 /// [`FontDb::generation`]).
 pub fn resolve(family: &str, bold: bool, italic: bool) -> Resolved {

@@ -286,7 +286,7 @@ pub(crate) fn draw_vector(ctx: &mut RenderContext, v: &Vector, r: &kurbo::Rect, 
 
 /// Draws a metafile text run: `tf` maps the run's own space (see [`PlacedItem::Text`]) to the device.
 fn draw_vector_text(ctx: &mut RenderContext, t: &craft_metafile::Text, tf: Affine) {
-    let face = wordcraft_fonts::word::resolve(&t.font.family, t.font.weight >= 700, t.font.italic).face;
+    let face = wordcraft_fonts::word::resolve(&t.font.family, wordcraft_fonts::word::metafile_is_bold(t.font.weight), t.font.italic).face;
     let shaped = wordcraft_fonts::shape(&face, &t.text, &[], |c| c);
     let glyphs: Vec<_> = shaped.iter().map(|g| (g.cluster, f64::from(g.x_advance), f64::from(g.x_offset), f64::from(g.y_offset))).collect();
     let Some(lay) = t.layout(face.upem, face.ascent, face.descent, &glyphs) else { return };
